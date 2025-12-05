@@ -1,0 +1,567 @@
+package model
+
+import (
+	"database/sql/driver"
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+// JSON type for MySQL
+type JSON []byte
+
+func (j JSON) Value() (driver.Value, error) {
+	if len(j) == 0 {
+		return nil, nil
+	}
+	return string(j), nil
+}
+
+func (j *JSON) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	}
+	*j = bytes
+	return nil
+}
+
+func (j JSON) MarshalJSON() ([]byte, error) {
+	if len(j) == 0 {
+		return []byte("null"), nil
+	}
+	return j, nil
+}
+
+func (j *JSON) UnmarshalJSON(data []byte) error {
+	if j == nil {
+		return nil
+	}
+	*j = append((*j)[0:0], data...)
+	return nil
+}
+
+// Base Model
+type BaseModel struct {
+	ID        string         `gorm:"type:char(36);primary_key" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+}
+
+func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
+	if base.ID == "" {
+		base.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// User Model
+type User struct {
+	BaseModel
+	Nama         string     `gorm:"type:varchar(255);not null" json:"nama"`
+	Email        string     `gorm:"type:varchar(255);uniqueIndex;not null" json:"email"`
+	PasswordHash string     `gorm:"type:varchar(255);column:password_hash;not null" json:"-"`
+	NIP          *string    `gorm:"type:varchar(50);column:nip;uniqueIndex" json:"nip"`
+	Role         string     `gorm:"type:varchar(20);not null" json:"role"`
+	Status       string     `gorm:"type:varchar(20);default:'active'" json:"status"`
+	Phone        *string    `gorm:"type:varchar(20);column:phone" json:"phone"`
+	AvatarURL    *string    `gorm:"type:varchar(500);column:avatar_url" json:"avatar_url"`
+	LastLogin    *time.Time `gorm:"column:last_login" json:"last_login"`
+}
+
+func (User) TableName() string {
+	return "users"
+}
+
+// RefreshToken Model
+type RefreshToken struct {
+	ID        string    `gorm:"type:char(36);primary_key" json:"id"`
+	UserID    string    `gorm:"type:char(36);not null;index" json:"user_id"`
+	Token     string    `gorm:"type:varchar(500);column:token;not null" json:"-"`
+	ExpiresAt time.Time `gorm:"not null" json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+	Revoked   bool      `gorm:"default:false" json:"revoked"`
+	User      User      `gorm:"foreignKey:UserID" json:"-"`
+}
+
+func (RefreshToken) TableName() string {
+	return "refresh_tokens"
+}
+
+func (r *RefreshToken) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// CPL Model
+type CPL struct {
+	ID        string     `gorm:"type:char(36);primary_key" json:"id"`
+	Kode      string     `gorm:"type:varchar(20);uniqueIndex;not null" json:"kode"`
+	Nama      string     `gorm:"type:varchar(255);column:nama;not null" json:"nama"`
+	Deskripsi *string    `gorm:"type:text" json:"deskripsi"`
+	Status    string     `gorm:"type:varchar(20);default:'draft'" json:"status"`
+	Version   int        `gorm:"default:1" json:"version"`
+	CreatedBy string     `gorm:"type:char(36);not null" json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `gorm:"index" json:"deleted_at,omitempty"`
+	Creator   User       `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+}
+
+func (CPL) TableName() string {
+	return "cpl"
+}
+
+func (c *CPL) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == "" {
+		c.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// MataKuliah Model
+type MataKuliah struct {
+	ID              string     `gorm:"type:char(36);primary_key" json:"id"`
+	Kode            string     `gorm:"type:varchar(20);uniqueIndex;not null" json:"kode"`
+	Nama            string     `gorm:"type:varchar(255);not null" json:"nama"`
+	SKS             int        `gorm:"not null" json:"sks"`
+	Semester        int        `gorm:"not null" json:"semester"`
+	Jenis           string     `gorm:"type:enum('wajib','pilihan');default:'wajib'" json:"jenis"`
+	Deskripsi       *string    `gorm:"type:text" json:"deskripsi"`
+	Prasyarat       JSON       `gorm:"type:json" json:"prasyarat"`
+	DosenPengampuID *string    `gorm:"type:char(36);column:dosen_pengampu_id" json:"dosen_pengampu_id"`
+	KoordinatorID   *string    `gorm:"type:char(36);column:koordinator_id" json:"koordinator_id"`
+	IsActive        bool       `gorm:"column:is_active;default:true" json:"-"`
+	Status          string     `gorm:"type:enum('aktif','nonaktif','dihapus');default:'aktif'" json:"status"`
+	CreatedBy       string     `gorm:"type:char(36);not null" json:"created_by"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+	DeletedAt       *time.Time `gorm:"index" json:"deleted_at,omitempty"`
+	Creator         User       `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+	DosenPengampu   *User      `gorm:"foreignKey:DosenPengampuID" json:"dosen_pengampu,omitempty"`
+	Koordinator     *User      `gorm:"foreignKey:KoordinatorID" json:"koordinator,omitempty"`
+}
+
+func (MataKuliah) TableName() string {
+	return "mata_kuliah"
+}
+
+func (m *MataKuliah) BeforeCreate(tx *gorm.DB) error {
+	if m.ID == "" {
+		m.ID = uuid.New().String()
+	}
+	if m.Jenis == "" {
+		m.Jenis = "wajib"
+	}
+	if m.Status == "" {
+		m.Status = "aktif"
+	}
+	return nil
+}
+
+// CPLAssignment Model
+type CPLAssignment struct {
+	ID              string     `gorm:"type:char(36);primary_key" json:"id"`
+	CPLID           string     `gorm:"type:char(36);not null;index" json:"cpl_id"`
+	DosenID         string     `gorm:"type:char(36);not null;index" json:"dosen_id"`
+	MataKuliah      *string    `gorm:"column:mata_kuliah;type:varchar(255)" json:"mata_kuliah"`
+	MataKuliahID    *string    `gorm:"column:mata_kuliah_id;type:char(36)" json:"mata_kuliah_id"`
+	Deadline        *time.Time `gorm:"column:deadline" json:"deadline"`
+	Status          string     `gorm:"type:varchar(20);default:'assigned'" json:"status"`
+	Catatan         *string    `gorm:"column:catatan;type:text" json:"catatan"`
+	RejectionReason *string    `gorm:"column:rejection_reason;type:text" json:"rejection_reason"`
+	AssignedBy      string     `gorm:"column:assigned_by;type:char(36);not null" json:"assigned_by"`
+	AssignedAt      time.Time  `gorm:"column:assigned_at;default:CURRENT_TIMESTAMP" json:"assigned_at"`
+	ResponseAt      *time.Time `gorm:"column:response_at" json:"response_at"`
+	CompletedAt     *time.Time `gorm:"column:completed_at" json:"completed_at"`
+	CreatedAt       time.Time  `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at" json:"updated_at"`
+	DeletedAt       *time.Time `gorm:"column:deleted_at;index" json:"deleted_at"`
+	CPL             CPL        `gorm:"foreignKey:CPLID" json:"cpl,omitempty"`
+	Dosen           User       `gorm:"foreignKey:DosenID" json:"dosen,omitempty"`
+	MataKuliahRef   MataKuliah `gorm:"foreignKey:MataKuliahID" json:"mata_kuliah_ref,omitempty"`
+	Assigner        User       `gorm:"foreignKey:AssignedBy" json:"assigner,omitempty"`
+}
+
+func (CPLAssignment) TableName() string {
+	return "cpl_assignments"
+}
+
+func (c *CPLAssignment) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == "" {
+		c.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// BobotNilai struct for RPS
+type BobotNilai struct {
+	Tugas     int `json:"tugas"`
+	UTS       int `json:"uts"`
+	UAS       int `json:"uas"`
+	Kehadiran int `json:"kehadiran"`
+	Praktikum int `json:"praktikum"`
+}
+
+// RPS Model
+type RPS struct {
+	ID                  string                   `gorm:"type:char(36);primary_key" json:"id"`
+	MataKuliahID        string                   `gorm:"type:char(36);not null;index" json:"mata_kuliah_id"`
+	MataKuliahNama      string                   `gorm:"type:varchar(255);not null" json:"mata_kuliah_nama"`
+	KodeMK              string                   `gorm:"type:varchar(20);not null" json:"kode_mk"`
+	SKS                 int                      `gorm:"not null" json:"sks"`
+	Semester            int                      `gorm:"not null" json:"semester"`
+	TahunAkademik       string                   `gorm:"type:varchar(20);not null" json:"tahun_akademik"`
+	DosenID             string                   `gorm:"type:char(36);not null;index" json:"dosen_id"`
+	DosenNama           string                   `gorm:"type:varchar(255);not null" json:"dosen_nama"`
+	Deskripsi           *string                  `gorm:"type:text" json:"deskripsi"`
+	Tujuan              *string                  `gorm:"type:text" json:"tujuan"`
+	Metode              JSON                     `gorm:"type:json" json:"metode"`
+	BobotNilai          JSON                     `gorm:"type:json;not null" json:"bobot_nilai"`
+	Status              string                   `gorm:"type:varchar(20);default:'draft'" json:"status"`
+	CreatedAt           time.Time                `json:"created_at"`
+	UpdatedAt           time.Time                `json:"updated_at"`
+	SubmittedAt         *time.Time               `json:"submitted_at"`
+	ReviewedAt          *time.Time               `json:"reviewed_at"`
+	PublishedAt         *time.Time               `json:"published_at"`
+	ReviewedBy          *string                  `gorm:"type:char(36)" json:"reviewed_by"`
+	ReviewNotes         *string                  `gorm:"type:text" json:"review_notes"`
+	MataKuliah          MataKuliah               `gorm:"foreignKey:MataKuliahID" json:"mata_kuliah,omitempty"`
+	Dosen               User                     `gorm:"foreignKey:DosenID" json:"dosen,omitempty"`
+	Reviewer            *User                    `gorm:"foreignKey:ReviewedBy" json:"reviewer,omitempty"`
+	CPMK                []RPSCPMK                `gorm:"foreignKey:RPSID" json:"cpmk,omitempty"`
+	RencanaPembelajaran []RPSRencanaPembelajaran `gorm:"foreignKey:RPSID" json:"rencana_pembelajaran,omitempty"`
+	BahanBacaan         []RPSBahanBacaan         `gorm:"foreignKey:RPSID" json:"bahan_bacaan,omitempty"`
+	Evaluasi            []RPSEvaluasi            `gorm:"foreignKey:RPSID" json:"evaluasi,omitempty"`
+}
+
+func (RPS) TableName() string {
+	return "rps"
+}
+
+func (r *RPS) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// RPSCPMK Model
+type RPSCPMK struct {
+	ID        string    `gorm:"type:char(36);primary_key" json:"id"`
+	RPSID     string    `gorm:"type:char(36);not null;index" json:"rps_id"`
+	Kode      string    `gorm:"type:varchar(50);not null" json:"kode"`
+	Deskripsi string    `gorm:"type:text;not null" json:"deskripsi"`
+	CPLIDs    JSON      `gorm:"type:json" json:"cpl_ids"`
+	Urutan    int       `gorm:"not null" json:"urutan"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (RPSCPMK) TableName() string {
+	return "rps_cpmk"
+}
+
+func (r *RPSCPMK) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// RPSRencanaPembelajaran Model
+type RPSRencanaPembelajaran struct {
+	ID        string    `gorm:"type:char(36);primary_key" json:"id"`
+	RPSID     string    `gorm:"type:char(36);not null;index" json:"rps_id"`
+	Pertemuan int       `gorm:"not null" json:"pertemuan"`
+	Topik     string    `gorm:"type:varchar(500);not null" json:"topik"`
+	SubTopik  JSON      `gorm:"type:json" json:"sub_topik"`
+	Metode    *string   `gorm:"type:varchar(255)" json:"metode"`
+	Waktu     *int      `json:"waktu"`
+	CPMKIDs   JSON      `gorm:"type:json" json:"cpmk_ids"`
+	Materi    *string   `gorm:"type:text" json:"materi"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (RPSRencanaPembelajaran) TableName() string {
+	return "rps_rencana_pembelajaran"
+}
+
+func (r *RPSRencanaPembelajaran) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// RPSBahanBacaan Model
+type RPSBahanBacaan struct {
+	ID        string    `gorm:"type:char(36);primary_key" json:"id"`
+	RPSID     string    `gorm:"type:char(36);not null;index" json:"rps_id"`
+	Judul     string    `gorm:"type:varchar(500);not null" json:"judul"`
+	Penulis   *string   `gorm:"type:varchar(255)" json:"penulis"`
+	Tahun     *int      `json:"tahun"`
+	Jenis     *string   `gorm:"type:varchar(50)" json:"jenis"`
+	URL       *string   `gorm:"type:varchar(1000)" json:"url"`
+	ISBN      *string   `gorm:"type:varchar(20)" json:"isbn"`
+	Halaman   *string   `gorm:"type:varchar(50)" json:"halaman"`
+	Urutan    *int      `json:"urutan"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (RPSBahanBacaan) TableName() string {
+	return "rps_bahan_bacaan"
+}
+
+func (r *RPSBahanBacaan) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// RPSEvaluasi Model
+type RPSEvaluasi struct {
+	ID                string    `gorm:"type:char(36);primary_key" json:"id"`
+	RPSID             string    `gorm:"type:char(36);not null;index" json:"rps_id"`
+	Jenis             string    `gorm:"type:varchar(100);not null" json:"jenis"`
+	Bobot             int       `gorm:"not null" json:"bobot"`
+	Deskripsi         *string   `gorm:"type:text" json:"deskripsi"`
+	MingguPelaksanaan JSON      `gorm:"type:json" json:"minggu_pelaksanaan"`
+	KriteriaPenilaian *string   `gorm:"type:text" json:"kriteria_penilaian"`
+	RubrikPenilaian   *string   `gorm:"type:text" json:"rubrik_penilaian"`
+	CreatedAt         time.Time `json:"created_at"`
+}
+
+func (RPSEvaluasi) TableName() string {
+	return "rps_evaluasi"
+}
+
+func (r *RPSEvaluasi) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// Notification Model
+type Notification struct {
+	ID            string     `gorm:"type:char(36);primary_key" json:"id"`
+	UserID        string     `gorm:"type:char(36);not null;index" json:"user_id"`
+	Title         string     `gorm:"type:varchar(255);not null" json:"title"`
+	Message       string     `gorm:"type:text;not null" json:"message"`
+	Type          string     `gorm:"type:varchar(50);not null" json:"type"`
+	ReferenceType *string    `gorm:"column:reference_type;type:varchar(50)" json:"reference_type"`
+	ReferenceID   *string    `gorm:"column:reference_id;type:char(36)" json:"reference_id"`
+	IsRead        bool       `gorm:"column:is_read;default:false" json:"is_read"`
+	ReadAt        *time.Time `gorm:"column:read_at" json:"read_at"`
+	ActionURL     *string    `gorm:"column:action_url;type:varchar(500)" json:"action_url"`
+	CreatedAt     time.Time  `gorm:"column:created_at" json:"created_at"`
+	User          User       `gorm:"foreignKey:UserID" json:"-"`
+}
+
+func (Notification) TableName() string {
+	return "notifications"
+}
+
+func (n *Notification) BeforeCreate(tx *gorm.DB) error {
+	if n.ID == "" {
+		n.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// DocumentTemplate Model
+type DocumentTemplate struct {
+	ID        string    `gorm:"type:char(36);primary_key" json:"id"`
+	Nama      string    `gorm:"type:varchar(255);not null" json:"nama"`
+	Deskripsi *string   `gorm:"type:text" json:"deskripsi"`
+	Sections  JSON      `gorm:"type:json;not null" json:"sections"`
+	FileURL   *string   `gorm:"type:varchar(1000)" json:"file_url"`
+	Version   string    `gorm:"type:varchar(20);default:'1.0'" json:"version"`
+	IsActive  bool      `gorm:"default:true" json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	CreatedBy string    `gorm:"type:char(36);not null" json:"created_by"`
+	Creator   User      `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+}
+
+func (DocumentTemplate) TableName() string {
+	return "document_templates"
+}
+
+func (d *DocumentTemplate) BeforeCreate(tx *gorm.DB) error {
+	if d.ID == "" {
+		d.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// GeneratedDocument Model
+type GeneratedDocument struct {
+	ID             string           `gorm:"type:char(36);primary_key" json:"id"`
+	TemplateID     string           `gorm:"type:char(36);not null;index" json:"template_id"`
+	TemplateName   string           `gorm:"type:varchar(255);not null" json:"template_name"`
+	Tahun          string           `gorm:"type:varchar(20);not null" json:"tahun"`
+	Status         string           `gorm:"type:varchar(20);default:'processing'" json:"status"`
+	FileURL        *string          `gorm:"type:varchar(1000)" json:"file_url"`
+	FileType       string           `gorm:"type:varchar(10);not null" json:"file_type"`
+	FileSize       *int64           `json:"file_size"`
+	Sections       JSON             `gorm:"type:json;not null" json:"sections"`
+	GenerationData JSON             `gorm:"type:json" json:"generation_data"`
+	Progress       int              `gorm:"default:0" json:"progress"`
+	ErrorMessage   *string          `gorm:"type:text" json:"error_message"`
+	CreatedAt      time.Time        `json:"created_at"`
+	CompletedAt    *time.Time       `json:"completed_at"`
+	CreatedBy      string           `gorm:"type:char(36);not null" json:"created_by"`
+	Template       DocumentTemplate `gorm:"foreignKey:TemplateID" json:"template,omitempty"`
+	Creator        User             `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+}
+
+func (GeneratedDocument) TableName() string {
+	return "generated_documents"
+}
+
+func (g *GeneratedDocument) BeforeCreate(tx *gorm.DB) error {
+	if g.ID == "" {
+		g.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// RPSCPLMapping Model
+type RPSCPLMapping struct {
+	ID        string    `gorm:"type:char(36);primary_key" json:"id"`
+	RPSID     string    `gorm:"type:char(36);not null;index" json:"rps_id"`
+	CPMKID    string    `gorm:"type:char(36);not null;index" json:"cpmk_id"`
+	CPLID     string    `gorm:"type:char(36);not null;index" json:"cpl_id"`
+	Level     string    `gorm:"type:varchar(20);not null" json:"level"`
+	Bobot     int       `gorm:"default:1" json:"bobot"`
+	CreatedAt time.Time `json:"created_at"`
+	CreatedBy string    `gorm:"type:char(36);not null" json:"created_by"`
+	RPS       RPS       `gorm:"foreignKey:RPSID" json:"rps,omitempty"`
+	CPMK      RPSCPMK   `gorm:"foreignKey:CPMKID" json:"cpmk,omitempty"`
+	CPL       CPL       `gorm:"foreignKey:CPLID" json:"cpl,omitempty"`
+}
+
+func (RPSCPLMapping) TableName() string {
+	return "rps_cpl_mapping"
+}
+
+func (r *RPSCPLMapping) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// AuditLog Model
+type AuditLog struct {
+	ID         string    `gorm:"type:char(36);primary_key" json:"id"`
+	UserID     *string   `gorm:"type:char(36);index" json:"user_id"`
+	Action     string    `gorm:"type:varchar(100);not null" json:"action"`
+	AuditTable string    `gorm:"column:table_name;type:varchar(100);not null" json:"table_name"`
+	RecordID   *string   `gorm:"type:char(36)" json:"record_id"`
+	OldValues  JSON      `gorm:"type:json" json:"old_values"`
+	NewValues  JSON      `gorm:"type:json" json:"new_values"`
+	IPAddress  *string   `gorm:"type:varchar(45)" json:"ip_address"`
+	UserAgent  *string   `gorm:"type:text" json:"user_agent"`
+	CreatedAt  time.Time `json:"created_at"`
+	User       *User     `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+func (AuditLog) TableName() string {
+	return "audit_logs"
+}
+
+func (a *AuditLog) BeforeCreate(tx *gorm.DB) error {
+	if a.ID == "" {
+		a.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// SystemSetting Model
+type SystemSetting struct {
+	ID          string    `gorm:"type:char(36);primary_key" json:"id"`
+	Key         string    `gorm:"type:varchar(100);uniqueIndex;not null" json:"key"`
+	Value       JSON      `gorm:"type:json" json:"value"`
+	Description *string   `gorm:"type:text" json:"description"`
+	Category    string    `gorm:"type:varchar(50);default:'general'" json:"category"`
+	IsPublic    bool      `gorm:"default:false" json:"is_public"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	UpdatedBy   *string   `gorm:"type:char(36)" json:"updated_by"`
+}
+
+func (SystemSetting) TableName() string {
+	return "system_settings"
+}
+
+func (s *SystemSetting) BeforeCreate(tx *gorm.DB) error {
+	if s.ID == "" {
+		s.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// File Model
+type File struct {
+	ID           string         `gorm:"type:char(36);primary_key" json:"id"`
+	OriginalName string         `gorm:"type:varchar(255);not null" json:"original_name"`
+	StoredName   string         `gorm:"type:varchar(255);not null" json:"stored_name"`
+	FilePath     string         `gorm:"type:varchar(1000);not null" json:"file_path"`
+	FileSize     int64          `gorm:"not null" json:"file_size"`
+	MimeType     string         `gorm:"type:varchar(100);not null" json:"mime_type"`
+	FileType     string         `gorm:"type:varchar(50);not null" json:"file_type"`
+	RelatedID    *string        `gorm:"type:char(36)" json:"related_id"`
+	RelatedType  *string        `gorm:"type:varchar(50)" json:"related_type"`
+	UploadedBy   string         `gorm:"type:char(36);not null" json:"uploaded_by"`
+	IsTemporary  bool           `gorm:"default:false" json:"is_temporary"`
+	CreatedAt    time.Time      `json:"created_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+	Uploader     User           `gorm:"foreignKey:UploadedBy" json:"uploader,omitempty"`
+}
+
+func (File) TableName() string {
+	return "files"
+}
+
+func (f *File) BeforeCreate(tx *gorm.DB) error {
+	if f.ID == "" {
+		f.ID = uuid.New().String()
+	}
+	return nil
+}
+
+type CPLMKMapping struct {
+	ID           string     `gorm:"type:char(36);primary_key" json:"id"`
+	CPLID        string     `gorm:"column:cpl_id;type:char(36);not null" json:"cpl_id"`
+	MataKuliahID string     `gorm:"column:mata_kuliah_id;type:char(36);not null" json:"mata_kuliah_id"`
+	Level        string     `gorm:"type:enum('tinggi','sedang','rendah');not null" json:"level"`
+	CreatedAt    time.Time  `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt    time.Time  `gorm:"column:updated_at" json:"updated_at"`
+	CPL          CPL        `gorm:"foreignKey:CPLID" json:"cpl,omitempty"`
+	MataKuliah   MataKuliah `gorm:"foreignKey:MataKuliahID" json:"mata_kuliah,omitempty"`
+}
+
+func (CPLMKMapping) TableName() string {
+	return "cpl_mk_mappings"
+}
+
+func (m *CPLMKMapping) BeforeCreate(tx *gorm.DB) error {
+	if m.ID == "" {
+		m.ID = uuid.New().String()
+	}
+	return nil
+}
