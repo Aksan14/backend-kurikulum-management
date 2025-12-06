@@ -112,6 +112,8 @@ func SetupRouter(
 				mk.PUT("/:id", middleware.KaprodiOnly(), controllers.MataKuliahController.UpdateMataKuliah)
 				mk.DELETE("/:id", middleware.KaprodiOnly(), controllers.MataKuliahController.DeleteMataKuliah)
 				mk.PATCH("/:id/toggle-status", middleware.KaprodiOnly(), controllers.MataKuliahController.ToggleMataKuliahStatus)
+				mk.PATCH("/:id/assign-dosen", middleware.KaprodiOnly(), controllers.MataKuliahController.AssignDosen)
+				mk.PATCH("/:id/unassign-dosen", middleware.KaprodiOnly(), controllers.MataKuliahController.UnassignDosen)
 			}
 
 			// CPL Assignment routes

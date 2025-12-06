@@ -321,3 +321,119 @@ func (c *MataKuliahController) ToggleMataKuliahStatus(ctx *gin.Context) {
 		Data:    response,
 	})
 }
+
+// AssignDosen godoc
+// @Summary Assign dosen to Mata Kuliah
+// @Description Assign dosen pengampu or koordinator to Mata Kuliah (Kaprodi only)
+// @Tags MataKuliah
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Mata Kuliah ID"
+// @Param request body dto.AssignDosenRequest true "Assign Dosen Request"
+// @Success 200 {object} dto.APIResponse{data=dto.MataKuliahResponse}
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Router /mata-kuliah/{id}/assign-dosen [patch]
+func (c *MataKuliahController) AssignDosen(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	var req dto.AssignDosenRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Message: "Data tidak valid",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// Validate at least one field is provided
+	if req.DosenPengampuID == nil && req.KoordinatorID == nil {
+		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Message: "Minimal satu field harus diisi: dosen_pengampu_id atau koordinator_id",
+		})
+		return
+	}
+
+	response, err := c.mkService.AssignDosen(id, req)
+	if err != nil {
+		status := http.StatusBadRequest
+		if err.Error() == "mata kuliah tidak ditemukan" {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, dto.ErrorResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Message: "Dosen berhasil di-assign ke mata kuliah",
+		Data:    response,
+	})
+}
+
+// UnassignDosen godoc
+// @Summary Unassign dosen from Mata Kuliah
+// @Description Remove dosen pengampu or koordinator from Mata Kuliah (Kaprodi only)
+// @Tags MataKuliah
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Mata Kuliah ID"
+// @Param request body dto.UnassignDosenRequest true "Unassign Dosen Request"
+// @Success 200 {object} dto.APIResponse{data=dto.MataKuliahResponse}
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Router /mata-kuliah/{id}/unassign-dosen [patch]
+func (c *MataKuliahController) UnassignDosen(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	var req dto.UnassignDosenRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Message: "Data tidak valid",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// Default to "all" if type is empty
+	dosenType := req.Type
+	if dosenType == "" {
+		dosenType = "all"
+	}
+
+	// Validate type
+	if dosenType != "pengampu" && dosenType != "koordinator" && dosenType != "all" {
+		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Message: "Type harus salah satu dari: pengampu, koordinator, all",
+		})
+		return
+	}
+
+	response, err := c.mkService.UnassignDosen(id, dosenType)
+	if err != nil {
+		status := http.StatusBadRequest
+		if err.Error() == "mata kuliah tidak ditemukan" {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, dto.ErrorResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Message: "Dosen berhasil di-unassign dari mata kuliah",
+		Data:    response,
+	})
+}

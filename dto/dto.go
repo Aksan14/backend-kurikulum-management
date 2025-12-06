@@ -193,6 +193,17 @@ type MataKuliahListRequest struct {
 	SortOrder string `form:"sort_order" binding:"omitempty,oneof=asc desc"`
 }
 
+// AssignDosenRequest untuk assign/update dosen pengampu atau koordinator
+type AssignDosenRequest struct {
+	DosenPengampuID *string `json:"dosen_pengampu_id" binding:"omitempty,uuid"`
+	KoordinatorID   *string `json:"koordinator_id" binding:"omitempty,uuid"`
+}
+
+// UnassignDosenRequest untuk unassign dosen dari mata kuliah
+type UnassignDosenRequest struct {
+	Type string `json:"type" binding:"required,oneof=pengampu koordinator all"`
+}
+
 // ============ CPL ASSIGNMENT DTOs ============
 
 type CPLAssignmentRequest struct {

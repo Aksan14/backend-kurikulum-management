@@ -18,6 +18,8 @@ type MataKuliahService interface {
 	UpdateMataKuliah(id string, req dto.UpdateMataKuliahRequest) (*dto.MataKuliahResponse, error)
 	DeleteMataKuliah(id string) error
 	ToggleMataKuliahStatus(id string) (*dto.MataKuliahResponse, error)
+	AssignDosen(id string, req dto.AssignDosenRequest) (*dto.MataKuliahResponse, error)
+	UnassignDosen(id string, dosenType string) (*dto.MataKuliahResponse, error)
 }
 
 type mataKuliahService struct {
@@ -283,6 +285,66 @@ func (s *mataKuliahService) ToggleMataKuliahStatus(id string) (*dto.MataKuliahRe
 	if err := s.mkRepo.Update(mk); err != nil {
 		return nil, errors.New("gagal mengubah status mata kuliah")
 	}
+
+	resp := toMataKuliahResponse(mk)
+	return &resp, nil
+}
+
+// AssignDosen assigns dosen pengampu or koordinator to mata kuliah
+func (s *mataKuliahService) AssignDosen(id string, req dto.AssignDosenRequest) (*dto.MataKuliahResponse, error) {
+	mk, err := s.mkRepo.FindByID(id)
+	if err != nil {
+		return nil, errors.New("mata kuliah tidak ditemukan")
+	}
+
+	// Update dosen pengampu if provided
+	if req.DosenPengampuID != nil {
+		mk.DosenPengampuID = req.DosenPengampuID
+	}
+
+	// Update koordinator if provided
+	if req.KoordinatorID != nil {
+		mk.KoordinatorID = req.KoordinatorID
+	}
+
+	if err := s.mkRepo.Update(mk); err != nil {
+		return nil, errors.New("gagal assign dosen ke mata kuliah")
+	}
+
+	// Reload to get relations
+	mk, _ = s.mkRepo.FindByID(mk.ID)
+
+	resp := toMataKuliahResponse(mk)
+	return &resp, nil
+}
+
+// UnassignDosen removes dosen pengampu or koordinator from mata kuliah
+// dosenType: "pengampu", "koordinator", or "all"
+func (s *mataKuliahService) UnassignDosen(id string, dosenType string) (*dto.MataKuliahResponse, error) {
+	mk, err := s.mkRepo.FindByID(id)
+	if err != nil {
+		return nil, errors.New("mata kuliah tidak ditemukan")
+	}
+
+	switch dosenType {
+	case "pengampu":
+		if err := s.mkRepo.ClearDosenPengampu(id); err != nil {
+			return nil, errors.New("gagal unassign dosen pengampu dari mata kuliah")
+		}
+	case "koordinator":
+		if err := s.mkRepo.ClearKoordinator(id); err != nil {
+			return nil, errors.New("gagal unassign koordinator dari mata kuliah")
+		}
+	case "all":
+		if err := s.mkRepo.ClearAllDosen(id); err != nil {
+			return nil, errors.New("gagal unassign semua dosen dari mata kuliah")
+		}
+	default:
+		return nil, errors.New("tipe dosen tidak valid. Gunakan: pengampu, koordinator, atau all")
+	}
+
+	// Reload to get relations
+	mk, _ = s.mkRepo.FindByID(mk.ID)
 
 	resp := toMataKuliahResponse(mk)
 	return &resp, nil

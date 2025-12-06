@@ -13,6 +13,9 @@ type MataKuliahRepository interface {
 	FindAll(page, limit int, search string, semester int, jenis, status, sortBy, sortOrder string) ([]model.MataKuliah, int64, error)
 	FindByDosenID(dosenID string, page, limit int) ([]model.MataKuliah, int64, error)
 	Update(mk *model.MataKuliah) error
+	ClearDosenPengampu(id string) error
+	ClearKoordinator(id string) error
+	ClearAllDosen(id string) error
 	Delete(id string) error
 	SoftDelete(id string) error
 	CountBySemester(semester int) (int64, error)
@@ -111,6 +114,21 @@ func (r *mataKuliahRepository) FindByDosenID(dosenID string, page, limit int) ([
 
 func (r *mataKuliahRepository) Update(mk *model.MataKuliah) error {
 	return r.db.Save(mk).Error
+}
+
+func (r *mataKuliahRepository) ClearDosenPengampu(id string) error {
+	return r.db.Model(&model.MataKuliah{}).Where("id = ?", id).Update("dosen_pengampu_id", nil).Error
+}
+
+func (r *mataKuliahRepository) ClearKoordinator(id string) error {
+	return r.db.Model(&model.MataKuliah{}).Where("id = ?", id).Update("koordinator_id", nil).Error
+}
+
+func (r *mataKuliahRepository) ClearAllDosen(id string) error {
+	return r.db.Model(&model.MataKuliah{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"dosen_pengampu_id": nil,
+		"koordinator_id":    nil,
+	}).Error
 }
 
 func (r *mataKuliahRepository) Delete(id string) error {
