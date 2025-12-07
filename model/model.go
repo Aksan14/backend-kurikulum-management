@@ -216,34 +216,49 @@ type BobotNilai struct {
 
 // RPS Model
 type RPS struct {
-	ID                  string                   `gorm:"type:char(36);primary_key" json:"id"`
-	MataKuliahID        string                   `gorm:"type:char(36);not null;index" json:"mata_kuliah_id"`
-	MataKuliahNama      string                   `gorm:"type:varchar(255);not null" json:"mata_kuliah_nama"`
-	KodeMK              string                   `gorm:"type:varchar(20);not null" json:"kode_mk"`
-	SKS                 int                      `gorm:"not null" json:"sks"`
-	Semester            int                      `gorm:"not null" json:"semester"`
-	TahunAkademik       string                   `gorm:"type:varchar(20);not null" json:"tahun_akademik"`
-	DosenID             string                   `gorm:"type:char(36);not null;index" json:"dosen_id"`
-	DosenNama           string                   `gorm:"type:varchar(255);not null" json:"dosen_nama"`
-	Deskripsi           *string                  `gorm:"type:text" json:"deskripsi"`
-	Tujuan              *string                  `gorm:"type:text" json:"tujuan"`
-	Metode              JSON                     `gorm:"type:json" json:"metode"`
-	BobotNilai          JSON                     `gorm:"type:json;not null" json:"bobot_nilai"`
-	Status              string                   `gorm:"type:varchar(20);default:'draft'" json:"status"`
-	CreatedAt           time.Time                `json:"created_at"`
-	UpdatedAt           time.Time                `json:"updated_at"`
-	SubmittedAt         *time.Time               `json:"submitted_at"`
-	ReviewedAt          *time.Time               `json:"reviewed_at"`
-	PublishedAt         *time.Time               `json:"published_at"`
-	ReviewedBy          *string                  `gorm:"type:char(36)" json:"reviewed_by"`
-	ReviewNotes         *string                  `gorm:"type:text" json:"review_notes"`
-	MataKuliah          MataKuliah               `gorm:"foreignKey:MataKuliahID" json:"mata_kuliah,omitempty"`
-	Dosen               User                     `gorm:"foreignKey:DosenID" json:"dosen,omitempty"`
-	Reviewer            *User                    `gorm:"foreignKey:ReviewedBy" json:"reviewer,omitempty"`
-	CPMK                []RPSCPMK                `gorm:"foreignKey:RPSID" json:"cpmk,omitempty"`
-	RencanaPembelajaran []RPSRencanaPembelajaran `gorm:"foreignKey:RPSID" json:"rencana_pembelajaran,omitempty"`
-	BahanBacaan         []RPSBahanBacaan         `gorm:"foreignKey:RPSID" json:"bahan_bacaan,omitempty"`
-	Evaluasi            []RPSEvaluasi            `gorm:"foreignKey:RPSID" json:"evaluasi,omitempty"`
+	ID                  string         `gorm:"type:char(36);primary_key" json:"id"`
+	MataKuliahID        string         `gorm:"type:char(36);not null;index" json:"mata_kuliah_id"`
+	TahunAjaran         string         `gorm:"column:tahun_ajaran;type:varchar(20);not null" json:"tahun_ajaran"`
+	SemesterType        string         `gorm:"column:semester_type;type:enum('ganjil','genap')" json:"semester_type"`
+	SemesterTipe        string         `gorm:"column:semester_tipe;type:enum('ganjil','genap');default:'ganjil'" json:"semester_tipe"`
+	TanggalPenyusunan   *time.Time     `gorm:"type:date" json:"tanggal_penyusunan"`
+	DosenID             string         `gorm:"type:char(36);not null;index" json:"dosen_id"`
+	DosenNama           string         `gorm:"type:varchar(255);not null" json:"dosen_nama"`
+	PenyusunID          *string        `gorm:"type:char(36)" json:"penyusun_id"`
+	PenyusunNama        *string        `gorm:"type:varchar(255)" json:"penyusun_nama"`
+	PenyusunNIDN        *string        `gorm:"column:penyusun_nidn;type:varchar(50)" json:"penyusun_nidn"`
+	KoordinatorRMKID    *string        `gorm:"type:char(36)" json:"koordinator_rmk_id"`
+	KoordinatorRMKNama  *string        `gorm:"type:varchar(255)" json:"koordinator_rmk_nama"`
+	KoordinatorRMKNIDN  *string        `gorm:"column:koordinator_rmk_nidn;type:varchar(50)" json:"koordinator_rmk_nidn"`
+	KaprodiID           *string        `gorm:"type:char(36)" json:"kaprodi_id"`
+	KaprodiNama         *string        `gorm:"type:varchar(255)" json:"kaprodi_nama"`
+	KaprodiNIDN         *string        `gorm:"column:kaprodi_nidn;type:varchar(50)" json:"kaprodi_nidn"`
+	Fakultas            *string        `gorm:"type:varchar(255)" json:"fakultas"`
+	ProgramStudi        *string        `gorm:"type:varchar(255)" json:"program_studi"`
+	DeskripsiMK         *string        `gorm:"column:deskripsi_mk;type:text" json:"deskripsi_mk"`
+	CapaianPembelajaran *string        `gorm:"column:capaian_pembelajaran;type:text" json:"capaian_pembelajaran"`
+	MetodePembelajaran  JSON           `gorm:"column:metode_pembelajaran;type:json" json:"metode_pembelajaran"`
+	MediaPembelajaran   JSON           `gorm:"column:media_pembelajaran;type:json" json:"media_pembelajaran"`
+	Status              string         `gorm:"type:varchar(20);default:'draft'" json:"status"`
+	Version             int            `gorm:"default:1" json:"version"`
+	ReviewerID          *string        `gorm:"column:reviewer_id;type:char(36)" json:"reviewer_id"`
+	ReviewCatatan       *string        `gorm:"column:review_catatan;type:text" json:"review_catatan"`
+	ReviewedAt          *time.Time     `gorm:"column:reviewed_at" json:"reviewed_at"`
+	ApprovedAt          *time.Time     `gorm:"column:approved_at" json:"approved_at"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+	// Relations
+	MataKuliah           MataKuliah                   `gorm:"foreignKey:MataKuliahID" json:"mata_kuliah,omitempty"`
+	Dosen                User                         `gorm:"foreignKey:DosenID" json:"dosen,omitempty"`
+	Reviewer             *User                        `gorm:"foreignKey:ReviewerID" json:"reviewer,omitempty"`
+	CPMK                 []RPSCPMK                    `gorm:"foreignKey:RPSID" json:"cpmk,omitempty"`
+	RencanaPembelajaran  []RPSRencanaPembelajaran     `gorm:"foreignKey:RPSID" json:"rencana_pembelajaran,omitempty"`
+	BahanBacaan          []RPSBahanBacaan             `gorm:"foreignKey:RPSID" json:"bahan_bacaan,omitempty"`
+	Evaluasi             []RPSEvaluasi                `gorm:"foreignKey:RPSID" json:"evaluasi,omitempty"`
+	RencanaTugas         []RPSRencanaTugas            `gorm:"foreignKey:RPSID" json:"rencana_tugas,omitempty"`
+	AnalisisKetercapaian []RPSAnalisisKetercapaianCPL `gorm:"foreignKey:RPSID" json:"analisis_ketercapaian,omitempty"`
+	SkalaPenilaian       []RPSSkalaPenilaian          `gorm:"foreignKey:RPSID" json:"skala_penilaian,omitempty"`
 }
 
 func (RPS) TableName() string {
@@ -261,11 +276,14 @@ func (r *RPS) BeforeCreate(tx *gorm.DB) error {
 type RPSCPMK struct {
 	ID        string    `gorm:"type:char(36);primary_key" json:"id"`
 	RPSID     string    `gorm:"type:char(36);not null;index" json:"rps_id"`
-	Kode      string    `gorm:"type:varchar(50);not null" json:"kode"`
+	Kode      string    `gorm:"type:varchar(20);not null" json:"kode"`
 	Deskripsi string    `gorm:"type:text;not null" json:"deskripsi"`
-	CPLIDs    JSON      `gorm:"type:json" json:"cpl_ids"`
-	Urutan    int       `gorm:"not null" json:"urutan"`
+	Bobot     *float64  `gorm:"type:decimal(5,2)" json:"bobot"`
+	Urutan    int       `gorm:"not null;default:1" json:"urutan"`
 	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	SubCPMKs    []SubCPMK        `gorm:"foreignKey:CPMKID" json:"sub_cpmks,omitempty"`
+	CPLMappings []CPMKCPLMapping `gorm:"foreignKey:CPMKID" json:"cpl_mappings,omitempty"`
 }
 
 func (RPSCPMK) TableName() string {
@@ -279,18 +297,75 @@ func (r *RPSCPMK) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// RPSRencanaPembelajaran Model
-type RPSRencanaPembelajaran struct {
+// SubCPMK Model - Kemampuan Akhir Tiap Tahapan
+type SubCPMK struct {
 	ID        string    `gorm:"type:char(36);primary_key" json:"id"`
-	RPSID     string    `gorm:"type:char(36);not null;index" json:"rps_id"`
-	Pertemuan int       `gorm:"not null" json:"pertemuan"`
-	Topik     string    `gorm:"type:varchar(500);not null" json:"topik"`
-	SubTopik  JSON      `gorm:"type:json" json:"sub_topik"`
-	Metode    *string   `gorm:"type:varchar(255)" json:"metode"`
-	Waktu     *int      `json:"waktu"`
-	CPMKIDs   JSON      `gorm:"type:json" json:"cpmk_ids"`
-	Materi    *string   `gorm:"type:text" json:"materi"`
+	CPMKID    string    `gorm:"type:char(36);not null;index" json:"cpmk_id"`
+	Kode      string    `gorm:"type:varchar(50);not null" json:"kode"`
+	Deskripsi string    `gorm:"type:text;not null" json:"deskripsi"`
+	Urutan    int       `gorm:"not null;default:1" json:"urutan"`
 	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	// Relations
+	CPMK RPSCPMK `gorm:"foreignKey:CPMKID" json:"cpmk,omitempty"`
+}
+
+func (SubCPMK) TableName() string {
+	return "sub_cpmk"
+}
+
+func (s *SubCPMK) BeforeCreate(tx *gorm.DB) error {
+	if s.ID == "" {
+		s.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// CPMKCPLMapping Model - Relasi CPMK ke CPL
+type CPMKCPLMapping struct {
+	ID        string    `gorm:"type:char(36);primary_key" json:"id"`
+	CPMKID    string    `gorm:"type:char(36);not null;index" json:"cpmk_id"`
+	CPLID     string    `gorm:"type:char(36);not null;index" json:"cpl_id"`
+	CreatedAt time.Time `json:"created_at"`
+	// Relations
+	CPMK RPSCPMK `gorm:"foreignKey:CPMKID" json:"cpmk,omitempty"`
+	CPL  CPL     `gorm:"foreignKey:CPLID" json:"cpl,omitempty"`
+}
+
+func (CPMKCPLMapping) TableName() string {
+	return "cpmk_cpl_mapping"
+}
+
+func (c *CPMKCPLMapping) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == "" {
+		c.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// RPSRencanaPembelajaran Model - Rencana Pembelajaran Per Minggu
+type RPSRencanaPembelajaran struct {
+	ID                string    `gorm:"type:char(36);primary_key" json:"id"`
+	RPSID             string    `gorm:"type:char(36);not null;index" json:"rps_id"`
+	Pertemuan         int       `gorm:"not null" json:"pertemuan"`
+	MingguMulai       int       `gorm:"not null;default:1" json:"minggu_mulai"`
+	MingguSelesai     *int      `json:"minggu_selesai"`
+	Topik             string    `gorm:"type:varchar(500);not null" json:"topik"`
+	SubTopik          JSON      `gorm:"type:json" json:"sub_topik"`
+	SubCPMKIDs        JSON      `gorm:"type:json" json:"sub_cpmk_ids"`
+	CPMKIDs           JSON      `gorm:"type:json" json:"cpmk_ids"`
+	Indikator         JSON      `gorm:"type:json" json:"indikator"`
+	Metode            *string   `gorm:"type:varchar(255)" json:"metode"`
+	MediaLMS          *string   `gorm:"type:varchar(500)" json:"media_lms"`
+	Waktu             *int      `json:"waktu"`
+	WaktuTM           *int      `gorm:"column:waktu_tm" json:"waktu_tm"`
+	WaktuBM           *int      `gorm:"column:waktu_bm" json:"waktu_bm"`
+	WaktuPT           *int      `gorm:"column:waktu_pt" json:"waktu_pt"`
+	Materi            *string   `gorm:"type:text" json:"materi"`
+	TeknikPenilaian   *string   `gorm:"type:varchar(255)" json:"teknik_penilaian"`
+	KriteriaPenilaian *string   `gorm:"type:text" json:"kriteria_penilaian"`
+	BobotPenilaian    *int      `json:"bobot_penilaian"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 func (RPSRencanaPembelajaran) TableName() string {
@@ -298,6 +373,87 @@ func (RPSRencanaPembelajaran) TableName() string {
 }
 
 func (r *RPSRencanaPembelajaran) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// RPSRencanaTugas Model - Rencana Tugas
+type RPSRencanaTugas struct {
+	ID                    string    `gorm:"type:char(36);primary_key" json:"id"`
+	RPSID                 string    `gorm:"type:char(36);not null;index" json:"rps_id"`
+	NomorTugas            int       `gorm:"not null" json:"nomor_tugas"`
+	Judul                 string    `gorm:"type:varchar(500);not null" json:"judul"`
+	IndikatorKeberhasilan *string   `gorm:"type:text" json:"indikator_keberhasilan"`
+	BatasWaktuMinggu      *int      `json:"batas_waktu_minggu"`
+	PetunjukPengerjaan    *string   `gorm:"type:text" json:"petunjuk_pengerjaan"`
+	JenisTugas            string    `gorm:"type:enum('individu','kelompok');default:'individu'" json:"jenis_tugas"`
+	LuaranTugas           *string   `gorm:"type:text" json:"luaran_tugas"`
+	KriteriaPenilaian     *string   `gorm:"type:text" json:"kriteria_penilaian"`
+	TeknikPenilaian       *string   `gorm:"type:varchar(255)" json:"teknik_penilaian"`
+	Bobot                 int       `gorm:"not null;default:0" json:"bobot"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
+}
+
+func (RPSRencanaTugas) TableName() string {
+	return "rps_rencana_tugas"
+}
+
+func (r *RPSRencanaTugas) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// RPSAnalisisKetercapaianCPL Model - Analisis Ketercapaian CPL
+type RPSAnalisisKetercapaianCPL struct {
+	ID              string    `gorm:"type:char(36);primary_key" json:"id"`
+	RPSID           string    `gorm:"type:char(36);not null;index" json:"rps_id"`
+	MingguMulai     int       `gorm:"not null" json:"minggu_mulai"`
+	MingguSelesai   *int      `json:"minggu_selesai"`
+	CPLID           string    `gorm:"type:char(36);not null;index" json:"cpl_id"`
+	CPMKIDs         JSON      `gorm:"type:json" json:"cpmk_ids"`
+	SubCPMKIDs      JSON      `gorm:"type:json" json:"sub_cpmk_ids"`
+	TopikMateri     *string   `gorm:"type:varchar(500)" json:"topik_materi"`
+	JenisAssessment *string   `gorm:"type:varchar(255)" json:"jenis_assessment"`
+	BobotKontribusi int       `gorm:"not null;default:0" json:"bobot_kontribusi"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	// Relations
+	CPL CPL `gorm:"foreignKey:CPLID" json:"cpl,omitempty"`
+}
+
+func (RPSAnalisisKetercapaianCPL) TableName() string {
+	return "rps_analisis_ketercapaian_cpl"
+}
+
+func (r *RPSAnalisisKetercapaianCPL) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
+}
+
+// RPSSkalaPenilaian Model - Skala Penilaian
+type RPSSkalaPenilaian struct {
+	ID         string    `gorm:"type:char(36);primary_key" json:"id"`
+	RPSID      string    `gorm:"type:char(36);not null;index" json:"rps_id"`
+	NilaiMin   int       `gorm:"not null" json:"nilai_min"`
+	NilaiMax   int       `gorm:"not null" json:"nilai_max"`
+	HurufMutu  string    `gorm:"type:varchar(5);not null" json:"huruf_mutu"`
+	BobotNilai float64   `gorm:"type:decimal(4,2);not null" json:"bobot_nilai"`
+	IsLulus    bool      `gorm:"default:true" json:"is_lulus"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+func (RPSSkalaPenilaian) TableName() string {
+	return "rps_skala_penilaian"
+}
+
+func (r *RPSSkalaPenilaian) BeforeCreate(tx *gorm.DB) error {
 	if r.ID == "" {
 		r.ID = uuid.New().String()
 	}
@@ -330,17 +486,27 @@ func (r *RPSBahanBacaan) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// RPSEvaluasi Model
+// RPSEvaluasi Model - Analisis Ketercapaian CPL dan Bobot Penilaian
 type RPSEvaluasi struct {
 	ID                string    `gorm:"type:char(36);primary_key" json:"id"`
 	RPSID             string    `gorm:"type:char(36);not null;index" json:"rps_id"`
-	Jenis             string    `gorm:"type:varchar(100);not null" json:"jenis"`
-	Bobot             int       `gorm:"not null" json:"bobot"`
-	Deskripsi         *string   `gorm:"type:text" json:"deskripsi"`
-	MingguPelaksanaan JSON      `gorm:"type:json" json:"minggu_pelaksanaan"`
+	Komponen          string    `gorm:"type:varchar(100);not null" json:"komponen"`
+	TeknikPenilaian   *string   `gorm:"type:varchar(255)" json:"teknik_penilaian"`
+	Instrumen         *string   `gorm:"type:varchar(255)" json:"instrumen"`
+	Bobot             float64   `gorm:"type:decimal(5,2);not null" json:"bobot"`
+	MingguMulai       *int      `json:"minggu_mulai"`
+	MingguSelesai     *int      `json:"minggu_selesai"`
+	CPLID             *string   `gorm:"type:char(36)" json:"cpl_id"`
 	KriteriaPenilaian *string   `gorm:"type:text" json:"kriteria_penilaian"`
-	RubrikPenilaian   *string   `gorm:"type:text" json:"rubrik_penilaian"`
+	Urutan            int       `gorm:"not null;default:1" json:"urutan"`
+	CPMKIDs           JSON      `gorm:"type:json" json:"cpmk_ids"`
+	SubCPMKIDs        JSON      `gorm:"type:json" json:"sub_cpmk_ids"`
+	TopikMateri       *string   `gorm:"type:varchar(500)" json:"topik_materi"`
+	JenisAssessment   *string   `gorm:"type:varchar(255)" json:"jenis_assessment"`
 	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	// Relations
+	CPL *CPL `gorm:"foreignKey:CPLID" json:"cpl,omitempty"`
 }
 
 func (RPSEvaluasi) TableName() string {

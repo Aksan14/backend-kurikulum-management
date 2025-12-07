@@ -25,22 +25,27 @@ type RPSService interface {
 	RequestRevision(id, reviewerID string, catatan *string) (*dto.RPSResponse, error)
 
 	// CPMK
+	GetAllCPMK() ([]dto.RPSCPMKResponse, error)
 	AddCPMK(rpsID string, req dto.RPSCPMKRequest) (*dto.RPSCPMKResponse, error)
+	GetCPMKByRPS(rpsID string) ([]dto.RPSCPMKResponse, error)
 	UpdateCPMK(id string, req dto.RPSCPMKRequest) (*dto.RPSCPMKResponse, error)
 	DeleteCPMK(id string) error
 
 	// Rencana Pembelajaran
 	AddRencanaPembelajaran(rpsID string, req dto.RPSRencanaPembelajaranRequest) (*dto.RPSRencanaPembelajaranResponse, error)
+	GetRencanaPembelajaranByRPS(rpsID string) ([]dto.RPSRencanaPembelajaranResponse, error)
 	UpdateRencanaPembelajaran(id string, req dto.RPSRencanaPembelajaranRequest) (*dto.RPSRencanaPembelajaranResponse, error)
 	DeleteRencanaPembelajaran(id string) error
 
 	// Bahan Bacaan
 	AddBahanBacaan(rpsID string, req dto.RPSBahanBacaanRequest) (*dto.RPSBahanBacaanResponse, error)
+	GetBahanBacaanByRPS(rpsID string) ([]dto.RPSBahanBacaanResponse, error)
 	UpdateBahanBacaan(id string, req dto.RPSBahanBacaanRequest) (*dto.RPSBahanBacaanResponse, error)
 	DeleteBahanBacaan(id string) error
 
 	// Evaluasi
 	AddEvaluasi(rpsID string, req dto.RPSEvaluasiRequest) (*dto.RPSEvaluasiResponse, error)
+	GetEvaluasiByRPS(rpsID string) ([]dto.RPSEvaluasiResponse, error)
 	UpdateEvaluasi(id string, req dto.RPSEvaluasiRequest) (*dto.RPSEvaluasiResponse, error)
 	DeleteEvaluasi(id string) error
 }
@@ -148,31 +153,48 @@ func (s *rpsService) CreateRPS(dosenID, dosenNama string, req dto.RPSRequest) (*
 	if err != nil {
 		return nil, errors.New("mata kuliah tidak ditemukan")
 	}
+	_ = mk // mk available for future use if needed
 
-	metodeJSON, _ := json.Marshal(req.Metode)
-	bobotJSON, _ := json.Marshal(req.BobotNilai)
+	metodePembelajaranJSON, _ := json.Marshal(req.MetodePembelajaran)
+	mediaPembelajaranJSON, _ := json.Marshal(req.MediaPembelajaran)
+
+	// Parse tanggal_penyusunan if provided
+	var tanggalPenyusunan *time.Time
+	if req.TanggalPenyusunan != nil && *req.TanggalPenyusunan != "" {
+		parsed, err := time.Parse("2006-01-02", *req.TanggalPenyusunan)
+		if err == nil {
+			tanggalPenyusunan = &parsed
+		}
+	}
 
 	rps := &model.RPS{
-		MataKuliahID:   req.MataKuliahID,
-		MataKuliahNama: mk.Nama,
-		KodeMK:         mk.Kode,
-		SKS:            mk.SKS,
-		Semester:       mk.Semester,
-		TahunAkademik:  req.TahunAkademik,
-		DosenID:        dosenID,
-		DosenNama:      dosenNama,
-		Deskripsi:      req.Deskripsi,
-		Tujuan:         req.Tujuan,
-		Metode:         metodeJSON,
-		BobotNilai:     bobotJSON,
-		Status:         "draft",
+		MataKuliahID:        req.MataKuliahID,
+		TahunAjaran:         req.TahunAjaran,
+		SemesterType:        req.SemesterType,
+		TanggalPenyusunan:   tanggalPenyusunan,
+		DosenID:             dosenID,
+		DosenNama:           dosenNama,
+		PenyusunNama:        req.PenyusunNama,
+		PenyusunNIDN:        req.PenyusunNIDN,
+		KoordinatorRMKNama:  req.KoordinatorRMKNama,
+		KoordinatorRMKNIDN:  req.KoordinatorRMKNIDN,
+		KaprodiNama:         req.KaprodiNama,
+		KaprodiNIDN:         req.KaprodiNIDN,
+		Fakultas:            req.Fakultas,
+		ProgramStudi:        req.ProgramStudi,
+		DeskripsiMK:         req.DeskripsiMK,
+		CapaianPembelajaran: req.CapaianPembelajaran,
+		MetodePembelajaran:  metodePembelajaranJSON,
+		MediaPembelajaran:   mediaPembelajaranJSON,
+		Status:              "draft",
+		Version:             1,
 	}
 
 	if err := s.rpsRepo.Create(rps); err != nil {
 		return nil, errors.New("gagal membuat RPS")
 	}
 
-	rps, _ = s.rpsRepo.FindByID(rps.ID)
+	rps, _ = s.rpsRepo.FindMinimalByID(rps.ID)
 	resp := toRPSResponse(rps)
 	return &resp, nil
 }
@@ -189,32 +211,52 @@ func (s *rpsService) UpdateRPS(id string, req dto.RPSRequest) (*dto.RPSResponse,
 
 	// Get mata kuliah info if changed
 	if req.MataKuliahID != rps.MataKuliahID {
-		mk, err := s.mkRepo.FindByID(req.MataKuliahID)
+		_, err := s.mkRepo.FindByID(req.MataKuliahID)
 		if err != nil {
 			return nil, errors.New("mata kuliah tidak ditemukan")
 		}
 		rps.MataKuliahID = req.MataKuliahID
-		rps.MataKuliahNama = mk.Nama
-		rps.KodeMK = mk.Kode
-		rps.SKS = mk.SKS
-		rps.Semester = mk.Semester
 	}
 
-	metodeJSON, _ := json.Marshal(req.Metode)
-	bobotJSON, _ := json.Marshal(req.BobotNilai)
+	metodePembelajaranJSON, _ := json.Marshal(req.MetodePembelajaran)
+	mediaPembelajaranJSON, _ := json.Marshal(req.MediaPembelajaran)
 
-	rps.TahunAkademik = req.TahunAkademik
-	rps.Deskripsi = req.Deskripsi
-	rps.Tujuan = req.Tujuan
-	rps.Metode = metodeJSON
-	rps.BobotNilai = bobotJSON
+	// Parse tanggal_penyusunan if provided
+	if req.TanggalPenyusunan != nil && *req.TanggalPenyusunan != "" {
+		parsed, err := time.Parse("2006-01-02", *req.TanggalPenyusunan)
+		if err == nil {
+			rps.TanggalPenyusunan = &parsed
+		}
+	}
+
+	rps.TahunAjaran = req.TahunAjaran
+	rps.SemesterType = req.SemesterType
+	rps.PenyusunNama = req.PenyusunNama
+	rps.PenyusunNIDN = req.PenyusunNIDN
+	rps.KoordinatorRMKNama = req.KoordinatorRMKNama
+	rps.KoordinatorRMKNIDN = req.KoordinatorRMKNIDN
+	rps.KaprodiNama = req.KaprodiNama
+	rps.KaprodiNIDN = req.KaprodiNIDN
+	rps.Fakultas = req.Fakultas
+	rps.ProgramStudi = req.ProgramStudi
+	rps.DeskripsiMK = req.DeskripsiMK
+	rps.CapaianPembelajaran = req.CapaianPembelajaran
+	rps.MetodePembelajaran = metodePembelajaranJSON
+	rps.MediaPembelajaran = mediaPembelajaranJSON
 
 	if err := s.rpsRepo.Update(rps); err != nil {
 		return nil, errors.New("gagal mengupdate RPS")
 	}
 
-	rps, _ = s.rpsRepo.FindByID(rps.ID)
-	resp := toRPSResponse(rps)
+	resp := dto.RPSResponse{
+		ID:            rps.ID,
+		MataKuliahID:  rps.MataKuliahID,
+		DosenID:       rps.DosenID,
+		Status:        rps.Status,
+		ReviewerID:    rps.ReviewerID,
+		ReviewCatatan: rps.ReviewCatatan,
+		ReviewedAt:    rps.ReviewedAt,
+	}
 	return &resp, nil
 }
 
@@ -239,20 +281,26 @@ func (s *rpsService) UpdateRPSStatus(id, reviewerID string, req dto.RPSStatusUpd
 
 	now := time.Now()
 	rps.Status = req.Status
-	rps.ReviewNotes = req.ReviewNotes
+	rps.ReviewCatatan = req.ReviewNotes
 
 	switch req.Status {
 	case "submitted":
-		rps.SubmittedAt = &now
+		// submitted status update
 	case "approved", "rejected":
 		rps.ReviewedAt = &now
-		rps.ReviewedBy = &reviewerID
+		rps.ReviewerID = &reviewerID
 	case "published":
-		rps.PublishedAt = &now
+		rps.ApprovedAt = &now
 	}
 
 	if err := s.rpsRepo.Update(rps); err != nil {
 		return nil, errors.New("gagal mengupdate status RPS")
+	}
+
+	// Get mata kuliah name for notification
+	mkName := ""
+	if rps.MataKuliah.ID != "" {
+		mkName = rps.MataKuliah.Nama
 	}
 
 	// Send notification to dosen
@@ -263,7 +311,7 @@ func (s *rpsService) UpdateRPSStatus(id, reviewerID string, req dto.RPSStatusUpd
 			s.notifService.Create(dto.CreateNotificationRequest{
 				UserID:      rps.DosenID,
 				Title:       "RPS Disetujui",
-				Message:     "RPS " + rps.MataKuliahNama + " telah disetujui",
+				Message:     "RPS " + mkName + " telah disetujui",
 				Type:        "approval",
 				RelatedID:   &relatedID,
 				RelatedType: ptrString("rps"),
@@ -274,7 +322,7 @@ func (s *rpsService) UpdateRPSStatus(id, reviewerID string, req dto.RPSStatusUpd
 			s.notifService.Create(dto.CreateNotificationRequest{
 				UserID:      rps.DosenID,
 				Title:       "RPS Ditolak",
-				Message:     "RPS " + rps.MataKuliahNama + " ditolak. Silakan periksa catatan review.",
+				Message:     "RPS " + mkName + " ditolak. Silakan periksa catatan review.",
 				Type:        "rejection",
 				RelatedID:   &relatedID,
 				RelatedType: ptrString("rps"),
@@ -283,8 +331,15 @@ func (s *rpsService) UpdateRPSStatus(id, reviewerID string, req dto.RPSStatusUpd
 		}
 	}
 
-	rps, _ = s.rpsRepo.FindByID(rps.ID)
-	resp := toRPSResponse(rps)
+	resp := dto.RPSResponse{
+		ID:            rps.ID,
+		MataKuliahID:  rps.MataKuliahID,
+		DosenID:       rps.DosenID,
+		Status:        rps.Status,
+		ReviewerID:    rps.ReviewerID,
+		ReviewCatatan: rps.ReviewCatatan,
+		ReviewedAt:    rps.ReviewedAt,
+	}
 	return &resp, nil
 }
 
@@ -294,16 +349,17 @@ func (s *rpsService) SubmitRPS(id string) (*dto.RPSResponse, error) {
 		return nil, errors.New("RPS tidak ditemukan")
 	}
 
-	now := time.Now()
-	rps.Status = "submitted"
-	rps.SubmittedAt = &now
-
-	if err := s.rpsRepo.Update(rps); err != nil {
+	// Use UpdateStatus to only update the status field
+	if err := s.rpsRepo.UpdateStatus(id, "submitted", "", nil); err != nil {
 		return nil, errors.New("gagal submit RPS")
 	}
 
-	rps, _ = s.rpsRepo.FindByID(rps.ID)
-	resp := toRPSResponse(rps)
+	resp := dto.RPSResponse{
+		ID:           rps.ID,
+		MataKuliahID: rps.MataKuliahID,
+		DosenID:      rps.DosenID,
+		Status:       rps.Status,
+	}
 	return &resp, nil
 }
 
@@ -316,11 +372,19 @@ func (s *rpsService) ApproveRPS(id, reviewerID string, catatan *string) (*dto.RP
 	now := time.Now()
 	rps.Status = "approved"
 	rps.ReviewedAt = &now
-	rps.ReviewedBy = &reviewerID
-	rps.ReviewNotes = catatan
+	rps.ApprovedAt = &now
+	rps.ReviewerID = &reviewerID
+	rps.ReviewCatatan = catatan
 
-	if err := s.rpsRepo.Update(rps); err != nil {
+	// Use UpdateStatus to only update status-related fields and avoid saving related associations
+	if err := s.rpsRepo.UpdateStatus(id, "approved", reviewerID, catatan); err != nil {
 		return nil, errors.New("gagal approve RPS")
+	}
+
+	// Get mata kuliah name for notification
+	mkName := ""
+	if rps.MataKuliah.ID != "" {
+		mkName = rps.MataKuliah.Nama
 	}
 
 	// Send notification
@@ -329,7 +393,7 @@ func (s *rpsService) ApproveRPS(id, reviewerID string, catatan *string) (*dto.RP
 		s.notifService.Create(dto.CreateNotificationRequest{
 			UserID:      rps.DosenID,
 			Title:       "RPS Disetujui",
-			Message:     "RPS " + rps.MataKuliahNama + " telah disetujui",
+			Message:     "RPS " + mkName + " telah disetujui",
 			Type:        "approval",
 			RelatedID:   &relatedID,
 			RelatedType: ptrString("rps"),
@@ -351,11 +415,18 @@ func (s *rpsService) RejectRPS(id, reviewerID string, alasan *string) (*dto.RPSR
 	now := time.Now()
 	rps.Status = "rejected"
 	rps.ReviewedAt = &now
-	rps.ReviewedBy = &reviewerID
-	rps.ReviewNotes = alasan
+	rps.ReviewerID = &reviewerID
+	rps.ReviewCatatan = alasan
 
-	if err := s.rpsRepo.Update(rps); err != nil {
+	// Use UpdateStatus to only update status-related fields and avoid saving related associations
+	if err := s.rpsRepo.UpdateStatus(id, "rejected", reviewerID, alasan); err != nil {
 		return nil, errors.New("gagal reject RPS")
+	}
+
+	// Get mata kuliah name for notification
+	mkName := ""
+	if rps.MataKuliah.ID != "" {
+		mkName = rps.MataKuliah.Nama
 	}
 
 	// Send notification
@@ -364,7 +435,7 @@ func (s *rpsService) RejectRPS(id, reviewerID string, alasan *string) (*dto.RPSR
 		s.notifService.Create(dto.CreateNotificationRequest{
 			UserID:      rps.DosenID,
 			Title:       "RPS Ditolak",
-			Message:     "RPS " + rps.MataKuliahNama + " ditolak. Silakan periksa catatan review.",
+			Message:     "RPS " + mkName + " ditolak. Silakan periksa catatan review.",
 			Type:        "rejection",
 			RelatedID:   &relatedID,
 			RelatedType: ptrString("rps"),
@@ -378,19 +449,27 @@ func (s *rpsService) RejectRPS(id, reviewerID string, alasan *string) (*dto.RPSR
 }
 
 func (s *rpsService) RequestRevision(id, reviewerID string, catatan *string) (*dto.RPSResponse, error) {
-	rps, err := s.rpsRepo.FindByID(id)
+	// Use a minimal find to avoid preloading associations that might cause unintended writes
+	rps, err := s.rpsRepo.FindMinimalByID(id)
 	if err != nil {
 		return nil, errors.New("RPS tidak ditemukan")
 	}
 
 	now := time.Now()
-	rps.Status = "revision_requested"
+	rps.Status = "revision"
 	rps.ReviewedAt = &now
-	rps.ReviewedBy = &reviewerID
-	rps.ReviewNotes = catatan
+	rps.ReviewerID = &reviewerID
+	rps.ReviewCatatan = catatan
 
-	if err := s.rpsRepo.Update(rps); err != nil {
+	// Use UpdateStatus to only update status-related fields and avoid saving related associations
+	if err := s.rpsRepo.UpdateStatus(id, "revision", reviewerID, catatan); err != nil {
 		return nil, errors.New("gagal request revision")
+	}
+
+	// Get mata kuliah name for notification
+	mkName := ""
+	if rps.MataKuliah.ID != "" {
+		mkName = rps.MataKuliah.Nama
 	}
 
 	// Send notification
@@ -399,8 +478,8 @@ func (s *rpsService) RequestRevision(id, reviewerID string, catatan *string) (*d
 		s.notifService.Create(dto.CreateNotificationRequest{
 			UserID:      rps.DosenID,
 			Title:       "RPS Perlu Revisi",
-			Message:     "RPS " + rps.MataKuliahNama + " perlu direvisi. Silakan periksa catatan review.",
-			Type:        "revision",
+			Message:     "RPS " + mkName + " perlu direvisi. Silakan periksa catatan review.",
+			Type:        "warning",
 			RelatedID:   &relatedID,
 			RelatedType: ptrString("rps"),
 			Priority:    "high",
@@ -442,13 +521,11 @@ func (s *rpsService) GetRPSByMataKuliah(mkID string) ([]dto.RPSResponse, error) 
 
 // CPMK methods
 func (s *rpsService) AddCPMK(rpsID string, req dto.RPSCPMKRequest) (*dto.RPSCPMKResponse, error) {
-	cplIDsJSON, _ := json.Marshal(req.CPLIDs)
-
 	cpmk := &model.RPSCPMK{
 		RPSID:     rpsID,
 		Kode:      req.Kode,
 		Deskripsi: req.Deskripsi,
-		CPLIDs:    cplIDsJSON,
+		Bobot:     req.Bobot,
 		Urutan:    req.Urutan,
 	}
 
@@ -466,11 +543,9 @@ func (s *rpsService) UpdateCPMK(id string, req dto.RPSCPMKRequest) (*dto.RPSCPMK
 		return nil, errors.New("CPMK tidak ditemukan")
 	}
 
-	cplIDsJSON, _ := json.Marshal(req.CPLIDs)
-
 	cpmk.Kode = req.Kode
 	cpmk.Deskripsi = req.Deskripsi
-	cpmk.CPLIDs = cplIDsJSON
+	cpmk.Bobot = req.Bobot
 	cpmk.Urutan = req.Urutan
 
 	if err := s.cpmkRepo.Update(cpmk); err != nil {
@@ -479,6 +554,34 @@ func (s *rpsService) UpdateCPMK(id string, req dto.RPSCPMKRequest) (*dto.RPSCPMK
 
 	resp := toRPSCPMKResponse(cpmk)
 	return &resp, nil
+}
+
+func (s *rpsService) GetAllCPMK() ([]dto.RPSCPMKResponse, error) {
+	cpmkList, err := s.cpmkRepo.FindAll()
+	if err != nil {
+		return nil, errors.New("gagal mengambil data CPMK")
+	}
+
+	var responses []dto.RPSCPMKResponse
+	for _, cpmk := range cpmkList {
+		responses = append(responses, toRPSCPMKResponse(&cpmk))
+	}
+
+	return responses, nil
+}
+
+func (s *rpsService) GetCPMKByRPS(rpsID string) ([]dto.RPSCPMKResponse, error) {
+	cpmkList, err := s.cpmkRepo.FindByRPSID(rpsID)
+	if err != nil {
+		return nil, errors.New("gagal mengambil data CPMK")
+	}
+
+	var responses []dto.RPSCPMKResponse
+	for _, cpmk := range cpmkList {
+		responses = append(responses, toRPSCPMKResponse(&cpmk))
+	}
+
+	return responses, nil
 }
 
 func (s *rpsService) DeleteCPMK(id string) error {
@@ -538,6 +641,20 @@ func (s *rpsService) DeleteRencanaPembelajaran(id string) error {
 	return s.rencanaRepo.Delete(id)
 }
 
+func (s *rpsService) GetRencanaPembelajaranByRPS(rpsID string) ([]dto.RPSRencanaPembelajaranResponse, error) {
+	rencanaList, err := s.rencanaRepo.FindByRPSID(rpsID)
+	if err != nil {
+		return nil, errors.New("gagal mengambil data rencana pembelajaran")
+	}
+
+	var responses []dto.RPSRencanaPembelajaranResponse
+	for _, rencana := range rencanaList {
+		responses = append(responses, toRPSRencanaPembelajaranResponse(&rencana))
+	}
+
+	return responses, nil
+}
+
 // Bahan Bacaan methods
 func (s *rpsService) AddBahanBacaan(rpsID string, req dto.RPSBahanBacaanRequest) (*dto.RPSBahanBacaanResponse, error) {
 	bahan := &model.RPSBahanBacaan{
@@ -587,6 +704,20 @@ func (s *rpsService) DeleteBahanBacaan(id string) error {
 	return s.bahanRepo.Delete(id)
 }
 
+func (s *rpsService) GetBahanBacaanByRPS(rpsID string) ([]dto.RPSBahanBacaanResponse, error) {
+	bahanList, err := s.bahanRepo.FindByRPSID(rpsID)
+	if err != nil {
+		return nil, errors.New("gagal mengambil data bahan bacaan")
+	}
+
+	var responses []dto.RPSBahanBacaanResponse
+	for _, bahan := range bahanList {
+		responses = append(responses, toRPSBahanBacaanResponse(&bahan))
+	}
+
+	return responses, nil
+}
+
 // Evaluasi methods
 func (s *rpsService) AddEvaluasi(rpsID string, req dto.RPSEvaluasiRequest) (*dto.RPSEvaluasiResponse, error) {
 	// Check total bobot
@@ -595,16 +726,24 @@ func (s *rpsService) AddEvaluasi(rpsID string, req dto.RPSEvaluasiRequest) (*dto
 		return nil, errors.New("total bobot evaluasi tidak boleh lebih dari 100%")
 	}
 
-	mingguJSON, _ := json.Marshal(req.MingguPelaksanaan)
+	cpmkIDsJSON, _ := json.Marshal(req.CPMKIDs)
+	subCPMKIDsJSON, _ := json.Marshal(req.SubCPMKIDs)
 
 	evaluasi := &model.RPSEvaluasi{
 		RPSID:             rpsID,
-		Jenis:             req.Jenis,
+		Komponen:          req.Komponen,
+		TeknikPenilaian:   req.TeknikPenilaian,
+		Instrumen:         req.Instrumen,
 		Bobot:             req.Bobot,
-		Deskripsi:         req.Deskripsi,
-		MingguPelaksanaan: mingguJSON,
+		MingguMulai:       req.MingguMulai,
+		MingguSelesai:     req.MingguSelesai,
+		CPLID:             req.CPLID,
 		KriteriaPenilaian: req.KriteriaPenilaian,
-		RubrikPenilaian:   req.RubrikPenilaian,
+		Urutan:            req.Urutan,
+		CPMKIDs:           cpmkIDsJSON,
+		SubCPMKIDs:        subCPMKIDsJSON,
+		TopikMateri:       req.TopikMateri,
+		JenisAssessment:   req.JenisAssessment,
 	}
 
 	if err := s.evaluasiRepo.Create(evaluasi); err != nil {
@@ -627,14 +766,22 @@ func (s *rpsService) UpdateEvaluasi(id string, req dto.RPSEvaluasiRequest) (*dto
 		return nil, errors.New("total bobot evaluasi tidak boleh lebih dari 100%")
 	}
 
-	mingguJSON, _ := json.Marshal(req.MingguPelaksanaan)
+	cpmkIDsJSON, _ := json.Marshal(req.CPMKIDs)
+	subCPMKIDsJSON, _ := json.Marshal(req.SubCPMKIDs)
 
-	evaluasi.Jenis = req.Jenis
+	evaluasi.Komponen = req.Komponen
+	evaluasi.TeknikPenilaian = req.TeknikPenilaian
+	evaluasi.Instrumen = req.Instrumen
 	evaluasi.Bobot = req.Bobot
-	evaluasi.Deskripsi = req.Deskripsi
-	evaluasi.MingguPelaksanaan = mingguJSON
+	evaluasi.MingguMulai = req.MingguMulai
+	evaluasi.MingguSelesai = req.MingguSelesai
+	evaluasi.CPLID = req.CPLID
 	evaluasi.KriteriaPenilaian = req.KriteriaPenilaian
-	evaluasi.RubrikPenilaian = req.RubrikPenilaian
+	evaluasi.Urutan = req.Urutan
+	evaluasi.CPMKIDs = cpmkIDsJSON
+	evaluasi.SubCPMKIDs = subCPMKIDsJSON
+	evaluasi.TopikMateri = req.TopikMateri
+	evaluasi.JenisAssessment = req.JenisAssessment
 
 	if err := s.evaluasiRepo.Update(evaluasi); err != nil {
 		return nil, errors.New("gagal mengupdate evaluasi")
@@ -648,35 +795,58 @@ func (s *rpsService) DeleteEvaluasi(id string) error {
 	return s.evaluasiRepo.Delete(id)
 }
 
+func (s *rpsService) GetEvaluasiByRPS(rpsID string) ([]dto.RPSEvaluasiResponse, error) {
+	evaluasiList, err := s.evaluasiRepo.FindByRPSID(rpsID)
+	if err != nil {
+		return nil, errors.New("gagal mengambil data evaluasi")
+	}
+
+	var responses []dto.RPSEvaluasiResponse
+	for _, evaluasi := range evaluasiList {
+		responses = append(responses, toRPSEvaluasiResponse(&evaluasi))
+	}
+
+	return responses, nil
+}
+
 // Response converters
 func toRPSResponse(rps *model.RPS) dto.RPSResponse {
-	var metode []string
-	var bobotNilai dto.BobotNilaiRequest
-	json.Unmarshal(rps.Metode, &metode)
-	json.Unmarshal(rps.BobotNilai, &bobotNilai)
+	var metodePembelajaran []string
+	var mediaPembelajaran []string
+	json.Unmarshal(rps.MetodePembelajaran, &metodePembelajaran)
+	json.Unmarshal(rps.MediaPembelajaran, &mediaPembelajaran)
 
 	resp := dto.RPSResponse{
-		ID:             rps.ID,
-		MataKuliahID:   rps.MataKuliahID,
-		MataKuliahNama: rps.MataKuliahNama,
-		KodeMK:         rps.KodeMK,
-		SKS:            rps.SKS,
-		Semester:       rps.Semester,
-		TahunAkademik:  rps.TahunAkademik,
-		DosenID:        rps.DosenID,
-		DosenNama:      rps.DosenNama,
-		Deskripsi:      rps.Deskripsi,
-		Tujuan:         rps.Tujuan,
-		Metode:         metode,
-		BobotNilai:     bobotNilai,
-		Status:         rps.Status,
-		CreatedAt:      rps.CreatedAt,
-		UpdatedAt:      rps.UpdatedAt,
-		SubmittedAt:    rps.SubmittedAt,
-		ReviewedAt:     rps.ReviewedAt,
-		PublishedAt:    rps.PublishedAt,
-		ReviewedBy:     rps.ReviewedBy,
-		ReviewNotes:    rps.ReviewNotes,
+		ID:                  rps.ID,
+		MataKuliahID:        rps.MataKuliahID,
+		TahunAjaran:         rps.TahunAjaran,
+		SemesterType:        rps.SemesterType,
+		TanggalPenyusunan:   rps.TanggalPenyusunan,
+		DosenID:             rps.DosenID,
+		DosenNama:           rps.DosenNama,
+		PenyusunID:          rps.PenyusunID,
+		PenyusunNama:        rps.PenyusunNama,
+		PenyusunNIDN:        rps.PenyusunNIDN,
+		KoordinatorRMKID:    rps.KoordinatorRMKID,
+		KoordinatorRMKNama:  rps.KoordinatorRMKNama,
+		KoordinatorRMKNIDN:  rps.KoordinatorRMKNIDN,
+		KaprodiID:           rps.KaprodiID,
+		KaprodiNama:         rps.KaprodiNama,
+		KaprodiNIDN:         rps.KaprodiNIDN,
+		Fakultas:            rps.Fakultas,
+		ProgramStudi:        rps.ProgramStudi,
+		DeskripsiMK:         rps.DeskripsiMK,
+		CapaianPembelajaran: rps.CapaianPembelajaran,
+		MetodePembelajaran:  metodePembelajaran,
+		MediaPembelajaran:   mediaPembelajaran,
+		Status:              rps.Status,
+		Version:             rps.Version,
+		ReviewerID:          rps.ReviewerID,
+		ReviewCatatan:       rps.ReviewCatatan,
+		ReviewedAt:          rps.ReviewedAt,
+		ApprovedAt:          rps.ApprovedAt,
+		CreatedAt:           rps.CreatedAt,
+		UpdatedAt:           rps.UpdatedAt,
 	}
 
 	// Convert CPMK
@@ -699,6 +869,21 @@ func toRPSResponse(rps *model.RPS) dto.RPSResponse {
 		resp.Evaluasi = append(resp.Evaluasi, toRPSEvaluasiResponse(&eval))
 	}
 
+	// Convert Rencana Tugas
+	for _, tugas := range rps.RencanaTugas {
+		resp.RencanaTugas = append(resp.RencanaTugas, toRPSRencanaTugasResponseFromModel(&tugas))
+	}
+
+	// Convert Analisis Ketercapaian
+	for _, analisis := range rps.AnalisisKetercapaian {
+		resp.AnalisisKetercapaian = append(resp.AnalisisKetercapaian, toRPSAnalisisKetercapaianCPLResponseFromModel(&analisis))
+	}
+
+	// Convert Skala Penilaian
+	for _, skala := range rps.SkalaPenilaian {
+		resp.SkalaPenilaian = append(resp.SkalaPenilaian, toRPSSkalaPenilaianResponseFromModel(&skala))
+	}
+
 	if rps.Dosen.ID != "" {
 		dosen := toUserResponse(&rps.Dosen)
 		resp.Dosen = &dosen
@@ -713,37 +898,50 @@ func toRPSResponse(rps *model.RPS) dto.RPSResponse {
 }
 
 func toRPSCPMKResponse(cpmk *model.RPSCPMK) dto.RPSCPMKResponse {
-	var cplIDs []string
-	json.Unmarshal(cpmk.CPLIDs, &cplIDs)
-
 	return dto.RPSCPMKResponse{
 		ID:        cpmk.ID,
 		RPSID:     cpmk.RPSID,
 		Kode:      cpmk.Kode,
 		Deskripsi: cpmk.Deskripsi,
-		CPLIDs:    cplIDs,
+		Bobot:     cpmk.Bobot,
 		Urutan:    cpmk.Urutan,
 		CreatedAt: cpmk.CreatedAt,
+		UpdatedAt: cpmk.UpdatedAt,
 	}
 }
 
 func toRPSRencanaPembelajaranResponse(rencana *model.RPSRencanaPembelajaran) dto.RPSRencanaPembelajaranResponse {
 	var subTopik []string
 	var cpmkIDs []string
+	var subCpmkIDs []string
+	var indikator []string
 	json.Unmarshal(rencana.SubTopik, &subTopik)
 	json.Unmarshal(rencana.CPMKIDs, &cpmkIDs)
+	json.Unmarshal(rencana.SubCPMKIDs, &subCpmkIDs)
+	json.Unmarshal(rencana.Indikator, &indikator)
 
 	return dto.RPSRencanaPembelajaranResponse{
-		ID:        rencana.ID,
-		RPSID:     rencana.RPSID,
-		Pertemuan: rencana.Pertemuan,
-		Topik:     rencana.Topik,
-		SubTopik:  subTopik,
-		Metode:    rencana.Metode,
-		Waktu:     rencana.Waktu,
-		CPMKIDs:   cpmkIDs,
-		Materi:    rencana.Materi,
-		CreatedAt: rencana.CreatedAt,
+		ID:                rencana.ID,
+		RPSID:             rencana.RPSID,
+		Pertemuan:         rencana.Pertemuan,
+		MingguMulai:       rencana.MingguMulai,
+		MingguSelesai:     rencana.MingguSelesai,
+		Topik:             rencana.Topik,
+		SubTopik:          subTopik,
+		SubCPMKIDs:        subCpmkIDs,
+		CPMKIDs:           cpmkIDs,
+		Indikator:         indikator,
+		Metode:            rencana.Metode,
+		MediaLMS:          rencana.MediaLMS,
+		Waktu:             rencana.Waktu,
+		WaktuTM:           rencana.WaktuTM,
+		WaktuBM:           rencana.WaktuBM,
+		WaktuPT:           rencana.WaktuPT,
+		Materi:            rencana.Materi,
+		TeknikPenilaian:   rencana.TeknikPenilaian,
+		KriteriaPenilaian: rencana.KriteriaPenilaian,
+		BobotPenilaian:    rencana.BobotPenilaian,
+		CreatedAt:         rencana.CreatedAt,
 	}
 }
 
@@ -764,18 +962,92 @@ func toRPSBahanBacaanResponse(bahan *model.RPSBahanBacaan) dto.RPSBahanBacaanRes
 }
 
 func toRPSEvaluasiResponse(evaluasi *model.RPSEvaluasi) dto.RPSEvaluasiResponse {
-	var minggu []int
-	json.Unmarshal(evaluasi.MingguPelaksanaan, &minggu)
+	var cpmkIDs []string
+	var subCPMKIDs []string
+	json.Unmarshal(evaluasi.CPMKIDs, &cpmkIDs)
+	json.Unmarshal(evaluasi.SubCPMKIDs, &subCPMKIDs)
 
-	return dto.RPSEvaluasiResponse{
+	resp := dto.RPSEvaluasiResponse{
 		ID:                evaluasi.ID,
 		RPSID:             evaluasi.RPSID,
-		Jenis:             evaluasi.Jenis,
+		Komponen:          evaluasi.Komponen,
+		TeknikPenilaian:   evaluasi.TeknikPenilaian,
+		Instrumen:         evaluasi.Instrumen,
 		Bobot:             evaluasi.Bobot,
-		Deskripsi:         evaluasi.Deskripsi,
-		MingguPelaksanaan: minggu,
+		MingguMulai:       evaluasi.MingguMulai,
+		MingguSelesai:     evaluasi.MingguSelesai,
+		CPLID:             evaluasi.CPLID,
 		KriteriaPenilaian: evaluasi.KriteriaPenilaian,
-		RubrikPenilaian:   evaluasi.RubrikPenilaian,
+		Urutan:            evaluasi.Urutan,
+		CPMKIDs:           cpmkIDs,
+		SubCPMKIDs:        subCPMKIDs,
+		TopikMateri:       evaluasi.TopikMateri,
+		JenisAssessment:   evaluasi.JenisAssessment,
 		CreatedAt:         evaluasi.CreatedAt,
+		UpdatedAt:         evaluasi.UpdatedAt,
+	}
+
+	if evaluasi.CPL != nil {
+		resp.CPL = &dto.CPLSimpleResponse{
+			ID:   evaluasi.CPL.ID,
+			Kode: evaluasi.CPL.Kode,
+			Nama: evaluasi.CPL.Nama,
+		}
+	}
+
+	return resp
+}
+
+func toRPSRencanaTugasResponseFromModel(tugas *model.RPSRencanaTugas) dto.RPSRencanaTugasResponse {
+	return dto.RPSRencanaTugasResponse{
+		ID:                    tugas.ID,
+		RPSID:                 tugas.RPSID,
+		NomorTugas:            tugas.NomorTugas,
+		Judul:                 tugas.Judul,
+		IndikatorKeberhasilan: tugas.IndikatorKeberhasilan,
+		BatasWaktuMinggu:      tugas.BatasWaktuMinggu,
+		PetunjukPengerjaan:    tugas.PetunjukPengerjaan,
+		JenisTugas:            tugas.JenisTugas,
+		LuaranTugas:           tugas.LuaranTugas,
+		KriteriaPenilaian:     tugas.KriteriaPenilaian,
+		TeknikPenilaian:       tugas.TeknikPenilaian,
+		Bobot:                 tugas.Bobot,
+		CreatedAt:             tugas.CreatedAt,
+		UpdatedAt:             tugas.UpdatedAt,
+	}
+}
+
+func toRPSAnalisisKetercapaianCPLResponseFromModel(analisis *model.RPSAnalisisKetercapaianCPL) dto.RPSAnalisisKetercapaianCPLResponse {
+	var cpmkIDs []string
+	var subCPMKIDs []string
+	json.Unmarshal(analisis.CPMKIDs, &cpmkIDs)
+	json.Unmarshal(analisis.SubCPMKIDs, &subCPMKIDs)
+
+	return dto.RPSAnalisisKetercapaianCPLResponse{
+		ID:              analisis.ID,
+		RPSID:           analisis.RPSID,
+		MingguMulai:     analisis.MingguMulai,
+		MingguSelesai:   analisis.MingguSelesai,
+		CPLID:           analisis.CPLID,
+		CPMKIDs:         cpmkIDs,
+		SubCPMKIDs:      subCPMKIDs,
+		TopikMateri:     analisis.TopikMateri,
+		JenisAssessment: analisis.JenisAssessment,
+		BobotKontribusi: analisis.BobotKontribusi,
+		CreatedAt:       analisis.CreatedAt,
+		UpdatedAt:       analisis.UpdatedAt,
+	}
+}
+
+func toRPSSkalaPenilaianResponseFromModel(skala *model.RPSSkalaPenilaian) dto.RPSSkalaPenilaianResponse {
+	return dto.RPSSkalaPenilaianResponse{
+		ID:         skala.ID,
+		RPSID:      skala.RPSID,
+		NilaiMin:   skala.NilaiMin,
+		NilaiMax:   skala.NilaiMax,
+		HurufMutu:  skala.HurufMutu,
+		BobotNilai: skala.BobotNilai,
+		IsLulus:    skala.IsLulus,
+		CreatedAt:  skala.CreatedAt,
 	}
 }

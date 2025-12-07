@@ -16,6 +16,7 @@ type Controllers struct {
 	MataKuliahController    *controller.MataKuliahController
 	CPLAssignmentController *controller.CPLAssignmentController
 	RPSController           *controller.RPSController
+	RPSExtendedController   *controller.RPSExtendedController
 	NotificationController  *controller.NotificationController
 	DashboardController     *controller.DashboardController
 	DocumentController      *controller.DocumentController
@@ -142,35 +143,65 @@ func SetupRouter(
 			{
 				rps.GET("", controllers.RPSController.GetAllRPS)
 				rps.GET("/my", controllers.RPSController.GetMyRPS)
+				rps.GET("/cpmk", controllers.RPSController.GetAllCPMK) // Get all CPMK from all RPS
 				rps.GET("/mata-kuliah/:mata_kuliah_id", controllers.RPSController.GetRPSByMataKuliah)
-				rps.GET("/:id", controllers.RPSController.GetRPSByID)
+				rps.GET("/:rps_id", controllers.RPSController.GetRPSByID)
 				rps.POST("", controllers.RPSController.CreateRPS)
-				rps.PUT("/:id", controllers.RPSController.UpdateRPS)
-				rps.DELETE("/:id", controllers.RPSController.DeleteRPS)
-				rps.PATCH("/:id/submit", controllers.RPSController.SubmitRPS)
-				rps.PATCH("/:id/approve", middleware.KaprodiOnly(), controllers.RPSController.ApproveRPS)
-				rps.PATCH("/:id/reject", middleware.KaprodiOnly(), controllers.RPSController.RejectRPS)
-				rps.PATCH("/:id/request-revision", middleware.KaprodiOnly(), controllers.RPSController.RequestRevision)
+				rps.PUT("/:rps_id", controllers.RPSController.UpdateRPS)
+				rps.DELETE("/:rps_id", controllers.RPSController.DeleteRPS)
+				rps.PATCH("/:rps_id/submit", controllers.RPSController.SubmitRPS)
+				rps.PATCH("/:rps_id/approve", middleware.KaprodiOnly(), controllers.RPSController.ApproveRPS)
+				rps.PATCH("/:rps_id/reject", middleware.KaprodiOnly(), controllers.RPSController.RejectRPS)
+				rps.PATCH("/:rps_id/request-revision", middleware.KaprodiOnly(), controllers.RPSController.RequestRevision)
 
 				// CPMK sub-routes
 				rps.POST("/:rps_id/cpmk", controllers.RPSController.AddCPMK)
+				rps.GET("/:rps_id/cpmk", controllers.RPSController.GetCPMKByRPS)
 				rps.PUT("/cpmk/:cpmk_id", controllers.RPSController.UpdateCPMK)
 				rps.DELETE("/cpmk/:cpmk_id", controllers.RPSController.DeleteCPMK)
 
 				// Rencana Pembelajaran sub-routes
 				rps.POST("/:rps_id/rencana-pembelajaran", controllers.RPSController.AddRencanaPembelajaran)
+				rps.GET("/:rps_id/rencana-pembelajaran", controllers.RPSController.GetRencanaPembelajaranByRPS)
 				rps.PUT("/rencana-pembelajaran/:rencana_id", controllers.RPSController.UpdateRencanaPembelajaran)
 				rps.DELETE("/rencana-pembelajaran/:rencana_id", controllers.RPSController.DeleteRencanaPembelajaran)
 
 				// Bahan Bacaan sub-routes
 				rps.POST("/:rps_id/bahan-bacaan", controllers.RPSController.AddBahanBacaan)
+				rps.GET("/:rps_id/bahan-bacaan", controllers.RPSController.GetBahanBacaanByRPS)
 				rps.PUT("/bahan-bacaan/:bahan_id", controllers.RPSController.UpdateBahanBacaan)
 				rps.DELETE("/bahan-bacaan/:bahan_id", controllers.RPSController.DeleteBahanBacaan)
 
 				// Evaluasi sub-routes
 				rps.POST("/:rps_id/evaluasi", controllers.RPSController.AddEvaluasi)
+				rps.GET("/:rps_id/evaluasi", controllers.RPSController.GetEvaluasiByRPS)
 				rps.PUT("/evaluasi/:evaluasi_id", controllers.RPSController.UpdateEvaluasi)
 				rps.DELETE("/evaluasi/:evaluasi_id", controllers.RPSController.DeleteEvaluasi)
+
+				// Sub-CPMK sub-routes (Extended)
+				rps.POST("/cpmk/:cpmk_id/sub-cpmk", controllers.RPSExtendedController.AddSubCPMK)
+				rps.GET("/cpmk/:cpmk_id/sub-cpmk", controllers.RPSExtendedController.GetSubCPMKByCPMK)
+				rps.PUT("/sub-cpmk/:sub_cpmk_id", controllers.RPSExtendedController.UpdateSubCPMK)
+				rps.DELETE("/sub-cpmk/:sub_cpmk_id", controllers.RPSExtendedController.DeleteSubCPMK)
+
+				// Rencana Tugas sub-routes (Extended)
+				rps.POST("/:rps_id/rencana-tugas", controllers.RPSExtendedController.AddRencanaTugas)
+				rps.GET("/:rps_id/rencana-tugas", controllers.RPSExtendedController.GetRencanaTugasByRPS)
+				rps.PUT("/rencana-tugas/:tugas_id", controllers.RPSExtendedController.UpdateRencanaTugas)
+				rps.DELETE("/rencana-tugas/:tugas_id", controllers.RPSExtendedController.DeleteRencanaTugas)
+
+				// Analisis Ketercapaian CPL sub-routes (Extended)
+				rps.POST("/:rps_id/analisis-ketercapaian", controllers.RPSExtendedController.AddAnalisisKetercapaianCPL)
+				rps.GET("/:rps_id/analisis-ketercapaian", controllers.RPSExtendedController.GetAnalisisKetercapaianCPLByRPS)
+				rps.PUT("/analisis-ketercapaian/:analisis_id", controllers.RPSExtendedController.UpdateAnalisisKetercapaianCPL)
+				rps.DELETE("/analisis-ketercapaian/:analisis_id", controllers.RPSExtendedController.DeleteAnalisisKetercapaianCPL)
+
+				// Skala Penilaian sub-routes (Extended)
+				rps.POST("/:rps_id/skala-penilaian", controllers.RPSExtendedController.AddSkalaPenilaian)
+				rps.GET("/:rps_id/skala-penilaian", controllers.RPSExtendedController.GetSkalaPenilaianByRPS)
+				rps.PUT("/skala-penilaian/:skala_id", controllers.RPSExtendedController.UpdateSkalaPenilaian)
+				rps.DELETE("/skala-penilaian/:skala_id", controllers.RPSExtendedController.DeleteSkalaPenilaian)
+				rps.POST("/:rps_id/skala-penilaian/batch", controllers.RPSExtendedController.SetDefaultSkalaPenilaian)
 			}
 
 			// Notification routes
@@ -192,7 +223,6 @@ func SetupRouter(
 				documents.POST("/generate", controllers.DocumentController.GenerateDocument)
 				documents.DELETE("/:id", controllers.DocumentController.DeleteDocument)
 
-				// Template routes (Kaprodi only for CUD)
 				documents.GET("/templates", controllers.DocumentController.GetAllTemplates)
 				documents.GET("/templates/:id", controllers.DocumentController.GetTemplateByID)
 				documents.POST("/templates", middleware.KaprodiOnly(), controllers.DocumentController.CreateTemplate)

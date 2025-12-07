@@ -41,6 +41,12 @@ func main() {
 	generatedDocumentRepo := repository.NewGeneratedDocumentRepository(db)
 	cplMKMappingRepo := repository.NewCPLMKMappingRepository(db)
 
+	// New RPS Extended Repositories
+	subCPMKRepo := repository.NewSubCPMKRepository(db)
+	rencanaTugasRepo := repository.NewRPSRencanaTugasRepository(db)
+	analisisKetercapaianRepo := repository.NewRPSAnalisisKetercapaianCPLRepository(db)
+	skalaPenilaianRepo := repository.NewRPSSkalaPenilaianRepository(db)
+
 	// Initialize services
 	authService := service.NewAuthService(userRepo, refreshTokenRepo)
 	userService := service.NewUserService(userRepo)
@@ -53,6 +59,13 @@ func main() {
 	documentService := service.NewDocumentService(documentTemplateRepo, generatedDocumentRepo)
 	cplMKMappingService := service.NewCPLMKMappingService(cplMKMappingRepo, cplRepo, mataKuliahRepo)
 
+	// New RPS Extended Services
+	subCPMKService := service.NewSubCPMKService(subCPMKRepo, rpsCPMKRepo)
+	rencanaTugasService := service.NewRPSRencanaTugasService(rencanaTugasRepo, rpsRepo)
+	analisisKetercapaianService := service.NewRPSAnalisisKetercapaianCPLService(analisisKetercapaianRepo, rpsRepo)
+	skalaPenilaianService := service.NewRPSSkalaPenilaianService(skalaPenilaianRepo, rpsRepo)
+	rpsExtendedService := service.NewRPSExtendedService(subCPMKService, rencanaTugasService, analisisKetercapaianService, skalaPenilaianService)
+
 	// Initialize controllers
 	uploadDir := getEnv("UPLOAD_DIR", "./uploads")
 	authController := controller.NewAuthController(authService)
@@ -61,6 +74,7 @@ func main() {
 	mataKuliahController := controller.NewMataKuliahController(mataKuliahService)
 	cplAssignmentController := controller.NewCPLAssignmentController(cplAssignmentService)
 	rpsController := controller.NewRPSController(rpsService)
+	rpsExtendedController := controller.NewRPSExtendedController(rpsExtendedService)
 	notificationController := controller.NewNotificationController(notificationService)
 	dashboardController := controller.NewDashboardController(dashboardService)
 	documentController := controller.NewDocumentController(documentService)
@@ -75,6 +89,7 @@ func main() {
 		MataKuliahController:    mataKuliahController,
 		CPLAssignmentController: cplAssignmentController,
 		RPSController:           rpsController,
+		RPSExtendedController:   rpsExtendedController,
 		NotificationController:  notificationController,
 		DashboardController:     dashboardController,
 		DocumentController:      documentController,

@@ -262,42 +262,64 @@ type BobotNilaiRequest struct {
 }
 
 type RPSRequest struct {
-	MataKuliahID  string            `json:"mata_kuliah_id" binding:"required,uuid"`
-	TahunAkademik string            `json:"tahun_akademik" binding:"required"`
-	Deskripsi     *string           `json:"deskripsi"`
-	Tujuan        *string           `json:"tujuan"`
-	Metode        []string          `json:"metode"`
-	BobotNilai    BobotNilaiRequest `json:"bobot_nilai" binding:"required"`
+	MataKuliahID        string   `json:"mata_kuliah_id" binding:"required,uuid"`
+	TahunAjaran         string   `json:"tahun_ajaran" binding:"required"`
+	SemesterType        string   `json:"semester_type" binding:"omitempty,oneof=ganjil genap"`
+	TanggalPenyusunan   *string  `json:"tanggal_penyusunan"`
+	PenyusunNama        *string  `json:"penyusun_nama"`
+	PenyusunNIDN        *string  `json:"penyusun_nidn"`
+	KoordinatorRMKNama  *string  `json:"koordinator_rmk_nama"`
+	KoordinatorRMKNIDN  *string  `json:"koordinator_rmk_nidn"`
+	KaprodiNama         *string  `json:"kaprodi_nama"`
+	KaprodiNIDN         *string  `json:"kaprodi_nidn"`
+	Fakultas            *string  `json:"fakultas"`
+	ProgramStudi        *string  `json:"program_studi"`
+	DeskripsiMK         *string  `json:"deskripsi_mk"`
+	CapaianPembelajaran *string  `json:"capaian_pembelajaran"`
+	MetodePembelajaran  []string `json:"metode_pembelajaran"`
+	MediaPembelajaran   []string `json:"media_pembelajaran"`
 }
 
 type RPSResponse struct {
-	ID                  string                           `json:"id"`
-	MataKuliahID        string                           `json:"mata_kuliah_id"`
-	MataKuliahNama      string                           `json:"mata_kuliah_nama"`
-	KodeMK              string                           `json:"kode_mk"`
-	SKS                 int                              `json:"sks"`
-	Semester            int                              `json:"semester"`
-	TahunAkademik       string                           `json:"tahun_akademik"`
-	DosenID             string                           `json:"dosen_id"`
-	DosenNama           string                           `json:"dosen_nama"`
-	Deskripsi           *string                          `json:"deskripsi"`
-	Tujuan              *string                          `json:"tujuan"`
-	Metode              []string                         `json:"metode"`
-	BobotNilai          BobotNilaiRequest                `json:"bobot_nilai"`
-	Status              string                           `json:"status"`
-	CreatedAt           time.Time                        `json:"created_at"`
-	UpdatedAt           time.Time                        `json:"updated_at"`
-	SubmittedAt         *time.Time                       `json:"submitted_at"`
-	ReviewedAt          *time.Time                       `json:"reviewed_at"`
-	PublishedAt         *time.Time                       `json:"published_at"`
-	ReviewedBy          *string                          `json:"reviewed_by"`
-	ReviewNotes         *string                          `json:"review_notes"`
-	CPMK                []RPSCPMKResponse                `json:"cpmk,omitempty"`
-	RencanaPembelajaran []RPSRencanaPembelajaranResponse `json:"rencana_pembelajaran,omitempty"`
-	BahanBacaan         []RPSBahanBacaanResponse         `json:"bahan_bacaan,omitempty"`
-	Evaluasi            []RPSEvaluasiResponse            `json:"evaluasi,omitempty"`
-	Dosen               *UserResponse                    `json:"dosen,omitempty"`
-	MataKuliah          *MataKuliahResponse              `json:"mata_kuliah,omitempty"`
+	ID                   string                               `json:"id"`
+	MataKuliahID         string                               `json:"mata_kuliah_id"`
+	TahunAjaran          string                               `json:"tahun_ajaran"`
+	SemesterType         string                               `json:"semester_type"`
+	TanggalPenyusunan    *time.Time                           `json:"tanggal_penyusunan"`
+	DosenID              string                               `json:"dosen_id"`
+	DosenNama            string                               `json:"dosen_nama"`
+	PenyusunID           *string                              `json:"penyusun_id"`
+	PenyusunNama         *string                              `json:"penyusun_nama"`
+	PenyusunNIDN         *string                              `json:"penyusun_nidn"`
+	KoordinatorRMKID     *string                              `json:"koordinator_rmk_id"`
+	KoordinatorRMKNama   *string                              `json:"koordinator_rmk_nama"`
+	KoordinatorRMKNIDN   *string                              `json:"koordinator_rmk_nidn"`
+	KaprodiID            *string                              `json:"kaprodi_id"`
+	KaprodiNama          *string                              `json:"kaprodi_nama"`
+	KaprodiNIDN          *string                              `json:"kaprodi_nidn"`
+	Fakultas             *string                              `json:"fakultas"`
+	ProgramStudi         *string                              `json:"program_studi"`
+	DeskripsiMK          *string                              `json:"deskripsi_mk"`
+	CapaianPembelajaran  *string                              `json:"capaian_pembelajaran"`
+	MetodePembelajaran   []string                             `json:"metode_pembelajaran"`
+	MediaPembelajaran    []string                             `json:"media_pembelajaran"`
+	Status               string                               `json:"status"`
+	Version              int                                  `json:"version"`
+	ReviewerID           *string                              `json:"reviewer_id"`
+	ReviewCatatan        *string                              `json:"review_catatan"`
+	ReviewedAt           *time.Time                           `json:"reviewed_at"`
+	ApprovedAt           *time.Time                           `json:"approved_at"`
+	CreatedAt            time.Time                            `json:"created_at"`
+	UpdatedAt            time.Time                            `json:"updated_at"`
+	CPMK                 []RPSCPMKResponse                    `json:"cpmk,omitempty"`
+	RencanaPembelajaran  []RPSRencanaPembelajaranResponse     `json:"rencana_pembelajaran,omitempty"`
+	BahanBacaan          []RPSBahanBacaanResponse             `json:"bahan_bacaan,omitempty"`
+	Evaluasi             []RPSEvaluasiResponse                `json:"evaluasi,omitempty"`
+	RencanaTugas         []RPSRencanaTugasResponse            `json:"rencana_tugas,omitempty"`
+	AnalisisKetercapaian []RPSAnalisisKetercapaianCPLResponse `json:"analisis_ketercapaian,omitempty"`
+	SkalaPenilaian       []RPSSkalaPenilaianResponse          `json:"skala_penilaian,omitempty"`
+	Dosen                *UserResponse                        `json:"dosen,omitempty"`
+	MataKuliah           *MataKuliahResponse                  `json:"mata_kuliah,omitempty"`
 }
 
 type RPSListRequest struct {
@@ -323,43 +345,86 @@ type RPSStatusUpdateRequest struct {
 type RPSCPMKRequest struct {
 	Kode      string   `json:"kode" binding:"required"`
 	Deskripsi string   `json:"deskripsi" binding:"required"`
-	CPLIDs    []string `json:"cpl_ids"`
+	Bobot     *float64 `json:"bobot"`
 	Urutan    int      `json:"urutan" binding:"required,min=1"`
 }
 
 type RPSCPMKResponse struct {
+	ID          string              `json:"id"`
+	RPSID       string              `json:"rps_id"`
+	Kode        string              `json:"kode"`
+	Deskripsi   string              `json:"deskripsi"`
+	Bobot       *float64            `json:"bobot"`
+	Urutan      int                 `json:"urutan"`
+	CreatedAt   time.Time           `json:"created_at"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+	SubCPMKs    []SubCPMKResponse   `json:"sub_cpmks,omitempty"`
+	CPLMappings []CPLSimpleResponse `json:"cpl_mappings,omitempty"`
+}
+
+// ============ SUB-CPMK DTOs (Kemampuan Akhir Tiap Tahapan) ============
+
+type SubCPMKRequest struct {
+	Kode      string `json:"kode" binding:"required"`
+	Deskripsi string `json:"deskripsi" binding:"required"`
+	Urutan    int    `json:"urutan" binding:"required,min=1"`
+}
+
+type SubCPMKResponse struct {
 	ID        string    `json:"id"`
-	RPSID     string    `json:"rps_id"`
+	CPMKID    string    `json:"cpmk_id"`
 	Kode      string    `json:"kode"`
 	Deskripsi string    `json:"deskripsi"`
-	CPLIDs    []string  `json:"cpl_ids"`
 	Urutan    int       `json:"urutan"`
 	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ============ RPS RENCANA PEMBELAJARAN DTOs ============
 
 type RPSRencanaPembelajaranRequest struct {
-	Pertemuan int      `json:"pertemuan" binding:"required,min=1,max=16"`
-	Topik     string   `json:"topik" binding:"required"`
-	SubTopik  []string `json:"sub_topik"`
-	Metode    *string  `json:"metode"`
-	Waktu     *int     `json:"waktu"`
-	CPMKIDs   []string `json:"cpmk_ids"`
-	Materi    *string  `json:"materi"`
+	Pertemuan         int      `json:"pertemuan" binding:"required,min=1,max=16"`
+	MingguMulai       int      `json:"minggu_mulai" binding:"required,min=1"`
+	MingguSelesai     *int     `json:"minggu_selesai"`
+	Topik             string   `json:"topik" binding:"required"`
+	SubTopik          []string `json:"sub_topik"`
+	SubCPMKIDs        []string `json:"sub_cpmk_ids"`
+	CPMKIDs           []string `json:"cpmk_ids"`
+	Indikator         []string `json:"indikator"`
+	Metode            *string  `json:"metode"`
+	MediaLMS          *string  `json:"media_lms"`
+	Waktu             *int     `json:"waktu"`
+	WaktuTM           *int     `json:"waktu_tm"`
+	WaktuBM           *int     `json:"waktu_bm"`
+	WaktuPT           *int     `json:"waktu_pt"`
+	Materi            *string  `json:"materi"`
+	TeknikPenilaian   *string  `json:"teknik_penilaian"`
+	KriteriaPenilaian *string  `json:"kriteria_penilaian"`
+	BobotPenilaian    *int     `json:"bobot_penilaian"`
 }
 
 type RPSRencanaPembelajaranResponse struct {
-	ID        string    `json:"id"`
-	RPSID     string    `json:"rps_id"`
-	Pertemuan int       `json:"pertemuan"`
-	Topik     string    `json:"topik"`
-	SubTopik  []string  `json:"sub_topik"`
-	Metode    *string   `json:"metode"`
-	Waktu     *int      `json:"waktu"`
-	CPMKIDs   []string  `json:"cpmk_ids"`
-	Materi    *string   `json:"materi"`
-	CreatedAt time.Time `json:"created_at"`
+	ID                string    `json:"id"`
+	RPSID             string    `json:"rps_id"`
+	Pertemuan         int       `json:"pertemuan"`
+	MingguMulai       int       `json:"minggu_mulai"`
+	MingguSelesai     *int      `json:"minggu_selesai"`
+	Topik             string    `json:"topik"`
+	SubTopik          []string  `json:"sub_topik"`
+	SubCPMKIDs        []string  `json:"sub_cpmk_ids"`
+	CPMKIDs           []string  `json:"cpmk_ids"`
+	Indikator         []string  `json:"indikator"`
+	Metode            *string   `json:"metode"`
+	MediaLMS          *string   `json:"media_lms"`
+	Waktu             *int      `json:"waktu"`
+	WaktuTM           *int      `json:"waktu_tm"`
+	WaktuBM           *int      `json:"waktu_bm"`
+	WaktuPT           *int      `json:"waktu_pt"`
+	Materi            *string   `json:"materi"`
+	TeknikPenilaian   *string   `json:"teknik_penilaian"`
+	KriteriaPenilaian *string   `json:"kriteria_penilaian"`
+	BobotPenilaian    *int      `json:"bobot_penilaian"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 // ============ RPS BAHAN BACAAN DTOs ============
@@ -389,27 +454,131 @@ type RPSBahanBacaanResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// ============ RPS EVALUASI DTOs ============
+// ============ RPS EVALUASI DTOs - Analisis Ketercapaian CPL dan Bobot Penilaian ============
 
 type RPSEvaluasiRequest struct {
-	Jenis             string  `json:"jenis" binding:"required"`
-	Bobot             int     `json:"bobot" binding:"required,min=0,max=100"`
-	Deskripsi         *string `json:"deskripsi"`
-	MingguPelaksanaan []int   `json:"minggu_pelaksanaan"`
-	KriteriaPenilaian *string `json:"kriteria_penilaian"`
-	RubrikPenilaian   *string `json:"rubrik_penilaian"`
+	Komponen          string   `json:"komponen" binding:"required"`
+	TeknikPenilaian   *string  `json:"teknik_penilaian"`
+	Instrumen         *string  `json:"instrumen"`
+	Bobot             float64  `json:"bobot" binding:"required,min=0,max=100"`
+	MingguMulai       *int     `json:"minggu_mulai"`
+	MingguSelesai     *int     `json:"minggu_selesai"`
+	CPLID             *string  `json:"cpl_id"`
+	KriteriaPenilaian *string  `json:"kriteria_penilaian"`
+	Urutan            int      `json:"urutan"`
+	CPMKIDs           []string `json:"cpmk_ids"`
+	SubCPMKIDs        []string `json:"sub_cpmk_ids"`
+	TopikMateri       *string  `json:"topik_materi"`
+	JenisAssessment   *string  `json:"jenis_assessment"`
 }
 
 type RPSEvaluasiResponse struct {
-	ID                string    `json:"id"`
-	RPSID             string    `json:"rps_id"`
-	Jenis             string    `json:"jenis"`
-	Bobot             int       `json:"bobot"`
-	Deskripsi         *string   `json:"deskripsi"`
-	MingguPelaksanaan []int     `json:"minggu_pelaksanaan"`
-	KriteriaPenilaian *string   `json:"kriteria_penilaian"`
-	RubrikPenilaian   *string   `json:"rubrik_penilaian"`
-	CreatedAt         time.Time `json:"created_at"`
+	ID                string             `json:"id"`
+	RPSID             string             `json:"rps_id"`
+	Komponen          string             `json:"komponen"`
+	TeknikPenilaian   *string            `json:"teknik_penilaian"`
+	Instrumen         *string            `json:"instrumen"`
+	Bobot             float64            `json:"bobot"`
+	MingguMulai       *int               `json:"minggu_mulai"`
+	MingguSelesai     *int               `json:"minggu_selesai"`
+	CPLID             *string            `json:"cpl_id"`
+	KriteriaPenilaian *string            `json:"kriteria_penilaian"`
+	Urutan            int                `json:"urutan"`
+	CPMKIDs           []string           `json:"cpmk_ids"`
+	SubCPMKIDs        []string           `json:"sub_cpmk_ids"`
+	TopikMateri       *string            `json:"topik_materi"`
+	JenisAssessment   *string            `json:"jenis_assessment"`
+	CreatedAt         time.Time          `json:"created_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
+	CPL               *CPLSimpleResponse `json:"cpl,omitempty"`
+}
+
+// ============ RPS RENCANA TUGAS DTOs ============
+
+type RPSRencanaTugasRequest struct {
+	NomorTugas            int     `json:"nomor_tugas" binding:"required,min=1"`
+	Judul                 string  `json:"judul" binding:"required"`
+	IndikatorKeberhasilan *string `json:"indikator_keberhasilan"`
+	BatasWaktuMinggu      *int    `json:"batas_waktu_minggu"`
+	PetunjukPengerjaan    *string `json:"petunjuk_pengerjaan"`
+	JenisTugas            string  `json:"jenis_tugas" binding:"omitempty,oneof=individu kelompok Individu Kelompok"`
+	LuaranTugas           *string `json:"luaran_tugas"`
+	KriteriaPenilaian     *string `json:"kriteria_penilaian"`
+	TeknikPenilaian       *string `json:"teknik_penilaian"`
+	Bobot                 int     `json:"bobot" binding:"required,min=0,max=100"`
+}
+
+type RPSRencanaTugasResponse struct {
+	ID                    string    `json:"id"`
+	RPSID                 string    `json:"rps_id"`
+	NomorTugas            int       `json:"nomor_tugas"`
+	Judul                 string    `json:"judul"`
+	IndikatorKeberhasilan *string   `json:"indikator_keberhasilan"`
+	BatasWaktuMinggu      *int      `json:"batas_waktu_minggu"`
+	PetunjukPengerjaan    *string   `json:"petunjuk_pengerjaan"`
+	JenisTugas            string    `json:"jenis_tugas"`
+	LuaranTugas           *string   `json:"luaran_tugas"`
+	KriteriaPenilaian     *string   `json:"kriteria_penilaian"`
+	TeknikPenilaian       *string   `json:"teknik_penilaian"`
+	Bobot                 int       `json:"bobot"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
+}
+
+// ============ RPS ANALISIS KETERCAPAIAN CPL DTOs ============
+
+type RPSAnalisisKetercapaianCPLRequest struct {
+	MingguMulai     int      `json:"minggu_mulai" binding:"required,min=1"`
+	MingguSelesai   *int     `json:"minggu_selesai"`
+	CPLID           string   `json:"cpl_id" binding:"required,uuid"`
+	CPMKIDs         []string `json:"cpmk_ids"`
+	SubCPMKIDs      []string `json:"sub_cpmk_ids"`
+	TopikMateri     *string  `json:"topik_materi"`
+	JenisAssessment *string  `json:"jenis_assessment"`
+	BobotKontribusi int      `json:"bobot_kontribusi" binding:"required,min=0,max=100"`
+}
+
+type RPSAnalisisKetercapaianCPLResponse struct {
+	ID              string             `json:"id"`
+	RPSID           string             `json:"rps_id"`
+	MingguMulai     int                `json:"minggu_mulai"`
+	MingguSelesai   *int               `json:"minggu_selesai"`
+	CPLID           string             `json:"cpl_id"`
+	CPMKIDs         []string           `json:"cpmk_ids"`
+	SubCPMKIDs      []string           `json:"sub_cpmk_ids"`
+	TopikMateri     *string            `json:"topik_materi"`
+	JenisAssessment *string            `json:"jenis_assessment"`
+	BobotKontribusi int                `json:"bobot_kontribusi"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
+	CPL             *CPLSimpleResponse `json:"cpl,omitempty"`
+}
+
+// ============ RPS SKALA PENILAIAN DTOs ============
+
+type RPSSkalaPenilaianRequest struct {
+	NilaiMin   int     `json:"nilai_min" binding:"required,min=0,max=100"`
+	NilaiMax   int     `json:"nilai_max" binding:"required,min=0,max=100"`
+	HurufMutu  string  `json:"huruf_mutu" binding:"required"`
+	BobotNilai float64 `json:"bobot_nilai" binding:"required,min=0,max=4"`
+	IsLulus    bool    `json:"is_lulus"`
+}
+
+type RPSSkalaPenilaianResponse struct {
+	ID         string    `json:"id"`
+	RPSID      string    `json:"rps_id"`
+	NilaiMin   int       `json:"nilai_min"`
+	NilaiMax   int       `json:"nilai_max"`
+	HurufMutu  string    `json:"huruf_mutu"`
+	BobotNilai float64   `json:"bobot_nilai"`
+	IsLulus    bool      `json:"is_lulus"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// ============ RPS BATCH SKALA PENILAIAN (untuk set default) ============
+
+type RPSBatchSkalaPenilaianRequest struct {
+	SkalaPenilaian []RPSSkalaPenilaianRequest `json:"skala_penilaian" binding:"required,dive"`
 }
 
 // ============ NOTIFICATION DTOs ============

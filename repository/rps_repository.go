@@ -15,6 +15,7 @@ type RPSRepository interface {
 	Update(rps *model.RPS) error
 	Delete(id string) error
 	UpdateStatus(id, status, reviewedBy string, reviewNotes *string) error
+	FindMinimalByID(id string) (*model.RPS, error)
 	CountByStatus(status string) (int64, error)
 	CountByDosenAndStatus(dosenID, status string) (int64, error)
 }
@@ -116,17 +117,45 @@ func (r *rpsRepository) UpdateStatus(id, status, reviewedBy string, reviewNotes 
 	switch status {
 	case "submitted":
 		updates["submitted_at"] = now
-	case "approved", "rejected":
+	case "revision":
 		updates["reviewed_at"] = now
-		updates["reviewed_by"] = reviewedBy
+		updates["reviewer_id"] = reviewedBy
 		if reviewNotes != nil {
-			updates["review_notes"] = *reviewNotes
+			updates["review_catatan"] = *reviewNotes
 		}
-	case "published":
-		updates["published_at"] = now
+	case "approved":
+		updates["reviewed_at"] = now
+		updates["approved_at"] = now
+		updates["reviewer_id"] = reviewedBy
+		if reviewNotes != nil {
+			updates["review_catatan"] = *reviewNotes
+		}
+	case "rejected":
+		updates["reviewed_at"] = now
+		updates["reviewer_id"] = reviewedBy
+		if reviewNotes != nil {
+			updates["review_catatan"] = *reviewNotes
+		}
 	}
 
 	return r.db.Model(&model.RPS{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (r *rpsRepository) FindMinimalByID(id string) (*model.RPS, error) {
+	var rps model.RPS
+	// Select only the fields we need and avoid preloading associations to prevent unintended writes
+	err := r.db.Select("id, mata_kuliah_id, dosen_id").Where("id = ?", id).First(&rps).Error
+	if err != nil {
+		return nil, err
+	}
+	// Fetch mata kuliah name separately without using Preload
+	var mk model.MataKuliah
+	if rps.MataKuliahID != "" {
+		if err := r.db.Model(&model.MataKuliah{}).Select("id, nama").Where("id = ?", rps.MataKuliahID).First(&mk).Error; err == nil {
+			rps.MataKuliah = mk
+		}
+	}
+	return &rps, nil
 }
 
 func (r *rpsRepository) CountByStatus(status string) (int64, error) {

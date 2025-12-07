@@ -76,7 +76,7 @@ func (c *RPSController) GetAllRPS(ctx *gin.Context) {
 // @Failure 404 {object} dto.ErrorResponse
 // @Router /rps/{id} [get]
 func (c *RPSController) GetRPSByID(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("rps_id")
 
 	response, err := c.rpsService.GetRPSByID(id)
 	if err != nil {
@@ -153,7 +153,7 @@ func (c *RPSController) CreateRPS(ctx *gin.Context) {
 // @Failure 400 {object} dto.ErrorResponse
 // @Router /rps/{id} [put]
 func (c *RPSController) UpdateRPS(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("rps_id")
 
 	var req dto.RPSRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -192,7 +192,7 @@ func (c *RPSController) UpdateRPS(ctx *gin.Context) {
 // @Failure 400 {object} dto.ErrorResponse
 // @Router /rps/{id} [delete]
 func (c *RPSController) DeleteRPS(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("rps_id")
 
 	if err := c.rpsService.DeleteRPS(id); err != nil {
 		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
@@ -219,7 +219,7 @@ func (c *RPSController) DeleteRPS(ctx *gin.Context) {
 // @Failure 400 {object} dto.ErrorResponse
 // @Router /rps/{id}/submit [patch]
 func (c *RPSController) SubmitRPS(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("rps_id")
 
 	response, err := c.rpsService.SubmitRPS(id)
 	if err != nil {
@@ -250,7 +250,7 @@ func (c *RPSController) SubmitRPS(ctx *gin.Context) {
 // @Failure 400 {object} dto.ErrorResponse
 // @Router /rps/{id}/approve [patch]
 func (c *RPSController) ApproveRPS(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("rps_id")
 	userID, _ := ctx.Get("userID")
 
 	var req dto.ApproveRPSRequest
@@ -290,7 +290,7 @@ func (c *RPSController) ApproveRPS(ctx *gin.Context) {
 // @Failure 400 {object} dto.ErrorResponse
 // @Router /rps/{id}/reject [patch]
 func (c *RPSController) RejectRPS(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("rps_id")
 	userID, _ := ctx.Get("userID")
 
 	var req dto.RejectRPSRequest
@@ -333,7 +333,7 @@ func (c *RPSController) RejectRPS(ctx *gin.Context) {
 // @Failure 400 {object} dto.ErrorResponse
 // @Router /rps/{id}/request-revision [patch]
 func (c *RPSController) RequestRevision(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("rps_id")
 	userID, _ := ctx.Get("userID")
 
 	var req dto.RequestRevisionRequest
@@ -533,6 +533,61 @@ func (c *RPSController) DeleteCPMK(ctx *gin.Context) {
 	})
 }
 
+// GetAllCPMK godoc
+// @Summary Get All CPMK
+// @Description Get all CPMK from all RPS
+// @Tags RPS
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} dto.APIResponse{data=[]dto.RPSCPMKResponse}
+// @Failure 400 {object} dto.ErrorResponse
+// @Router /rps/cpmk [get]
+func (c *RPSController) GetAllCPMK(ctx *gin.Context) {
+	response, err := c.rpsService.GetAllCPMK()
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Message: "Berhasil mendapatkan semua data CPMK",
+		Data:    response,
+	})
+}
+
+// GetCPMKByRPS godoc
+// @Summary Get CPMK by RPS ID
+// @Description Get all CPMK for a specific RPS
+// @Tags RPS
+// @Produce json
+// @Security BearerAuth
+// @Param rps_id path string true "RPS ID"
+// @Success 200 {object} dto.APIResponse{data=[]dto.RPSCPMKResponse}
+// @Failure 400 {object} dto.ErrorResponse
+// @Router /rps/{rps_id}/cpmk [get]
+func (c *RPSController) GetCPMKByRPS(ctx *gin.Context) {
+	rpsID := ctx.Param("rps_id")
+
+	response, err := c.rpsService.GetCPMKByRPS(rpsID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Message: "Berhasil mendapatkan data CPMK",
+		Data:    response,
+	})
+}
+
 // ========== Rencana Pembelajaran Endpoints ==========
 
 // AddRencanaPembelajaran godoc
@@ -641,6 +696,35 @@ func (c *RPSController) DeleteRencanaPembelajaran(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, dto.APIResponse{
 		Success: true,
 		Message: "Rencana Pembelajaran berhasil dihapus",
+	})
+}
+
+// GetRencanaPembelajaranByRPS godoc
+// @Summary Get Rencana Pembelajaran by RPS ID
+// @Description Get all Rencana Pembelajaran for a specific RPS
+// @Tags RPS
+// @Produce json
+// @Security BearerAuth
+// @Param rps_id path string true "RPS ID"
+// @Success 200 {object} dto.APIResponse{data=[]dto.RPSRencanaPembelajaranResponse}
+// @Failure 400 {object} dto.ErrorResponse
+// @Router /rps/{rps_id}/rencana-pembelajaran [get]
+func (c *RPSController) GetRencanaPembelajaranByRPS(ctx *gin.Context) {
+	rpsID := ctx.Param("rps_id")
+
+	response, err := c.rpsService.GetRencanaPembelajaranByRPS(rpsID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Message: "Berhasil mendapatkan data Rencana Pembelajaran",
+		Data:    response,
 	})
 }
 
@@ -755,6 +839,35 @@ func (c *RPSController) DeleteBahanBacaan(ctx *gin.Context) {
 	})
 }
 
+// GetBahanBacaanByRPS godoc
+// @Summary Get Bahan Bacaan by RPS ID
+// @Description Get all Bahan Bacaan for a specific RPS
+// @Tags RPS
+// @Produce json
+// @Security BearerAuth
+// @Param rps_id path string true "RPS ID"
+// @Success 200 {object} dto.APIResponse{data=[]dto.RPSBahanBacaanResponse}
+// @Failure 400 {object} dto.ErrorResponse
+// @Router /rps/{rps_id}/bahan-bacaan [get]
+func (c *RPSController) GetBahanBacaanByRPS(ctx *gin.Context) {
+	rpsID := ctx.Param("rps_id")
+
+	response, err := c.rpsService.GetBahanBacaanByRPS(rpsID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Message: "Berhasil mendapatkan data Bahan Bacaan",
+		Data:    response,
+	})
+}
+
 // ========== Evaluasi Endpoints ==========
 
 // AddEvaluasi godoc
@@ -863,5 +976,34 @@ func (c *RPSController) DeleteEvaluasi(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, dto.APIResponse{
 		Success: true,
 		Message: "Evaluasi berhasil dihapus",
+	})
+}
+
+// GetEvaluasiByRPS godoc
+// @Summary Get Evaluasi by RPS ID
+// @Description Get all Evaluasi for a specific RPS
+// @Tags RPS
+// @Produce json
+// @Security BearerAuth
+// @Param rps_id path string true "RPS ID"
+// @Success 200 {object} dto.APIResponse{data=[]dto.RPSEvaluasiResponse}
+// @Failure 400 {object} dto.ErrorResponse
+// @Router /rps/{rps_id}/evaluasi [get]
+func (c *RPSController) GetEvaluasiByRPS(ctx *gin.Context) {
+	rpsID := ctx.Param("rps_id")
+
+	response, err := c.rpsService.GetEvaluasiByRPS(rpsID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Message: "Berhasil mendapatkan data Evaluasi",
+		Data:    response,
 	})
 }
