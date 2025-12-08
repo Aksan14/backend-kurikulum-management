@@ -217,7 +217,7 @@ type CPLAssignmentRequest struct {
 
 type CPLAssignmentResponse struct {
 	ID              string              `json:"id"`
-	CPLID           string              `json:"cpl_id"`
+	CPLIDs          []string            `json:"cpl_ids"`
 	DosenID         string              `json:"dosen_id"`
 	MataKuliah      *string             `json:"mata_kuliah"`
 	MataKuliahID    *string             `json:"mata_kuliah_id"`
@@ -229,7 +229,7 @@ type CPLAssignmentResponse struct {
 	AssignedAt      time.Time           `json:"assigned_at"`
 	ResponseAt      *time.Time          `json:"response_at"`
 	CompletedAt     *time.Time          `json:"completed_at"`
-	CPL             *CPLResponse        `json:"cpl,omitempty"`
+	CPLs            []CPLResponse       `json:"cpls,omitempty"`
 	Dosen           *UserResponse       `json:"dosen,omitempty"`
 	MataKuliahRef   *MataKuliahResponse `json:"mata_kuliah_ref,omitempty"`
 	Assigner        *UserResponse       `json:"assigner,omitempty"`
@@ -811,7 +811,7 @@ type UpdateCPLStatusRequest struct {
 }
 
 type CreateCPLAssignmentRequest struct {
-	CPLID        string     `json:"cpl_id" binding:"required"`
+	CPLIDs       []string   `json:"cpl_ids" binding:"omitempty,dive,required"`
 	DosenID      string     `json:"dosen_id" binding:"required"`
 	MataKuliah   *string    `json:"mata_kuliah"`
 	MataKuliahID *string    `json:"mata_kuliah_id"`

@@ -34,7 +34,7 @@ func (r *cplAssignmentRepository) Create(assignment *model.CPLAssignment) error 
 
 func (r *cplAssignmentRepository) FindByID(id string) (*model.CPLAssignment, error) {
 	var assignment model.CPLAssignment
-	err := r.db.Preload("CPL").Preload("Dosen").Preload("MataKuliahRef").Preload("Assigner").
+	err := r.db.Preload("Dosen").Preload("MataKuliahRef").Preload("Assigner").
 		Where("id = ?", id).First(&assignment).Error
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (r *cplAssignmentRepository) FindAll(page, limit int, cplID, dosenID, statu
 	query := r.db.Model(&model.CPLAssignment{})
 
 	if cplID != "" {
-		query = query.Where("cpl_id = ?", cplID)
+		query = query.Where("JSON_CONTAINS(cpl_ids, JSON_QUOTE(?))", cplID)
 	}
 	if dosenID != "" {
 		query = query.Where("dosen_id = ?", dosenID)
@@ -68,7 +68,7 @@ func (r *cplAssignmentRepository) FindAll(page, limit int, cplID, dosenID, statu
 	}
 
 	offset := (page - 1) * limit
-	err := query.Preload("CPL").Preload("Dosen").Preload("MataKuliahRef").
+	err := query.Preload("Dosen").Preload("MataKuliahRef").
 		Order(sortBy + " " + sortOrder).Offset(offset).Limit(limit).Find(&assignments).Error
 	return assignments, total, err
 }
@@ -85,7 +85,7 @@ func (r *cplAssignmentRepository) FindByDosenID(dosenID string, page, limit int,
 	query.Count(&total)
 
 	offset := (page - 1) * limit
-	err := query.Preload("CPL").Preload("MataKuliahRef").
+	err := query.Preload("MataKuliahRef").
 		Order("assigned_at DESC").Offset(offset).Limit(limit).Find(&assignments).Error
 	return assignments, total, err
 }
@@ -140,8 +140,10 @@ func (r *cplAssignmentRepository) CountByDosenAndStatus(dosenID, status string) 
 
 func (r *cplAssignmentRepository) CheckDuplicateAssignment(cplID, dosenID, mataKuliahID string) (bool, error) {
 	var count int64
+	// Check if the cplID exists in any of the JSON arrays in existing assignments
 	query := r.db.Model(&model.CPLAssignment{}).
-		Where("cpl_id = ? AND dosen_id = ? AND mata_kuliah_id = ?", cplID, dosenID, mataKuliahID).
+		Where("JSON_CONTAINS(cpl_ids, JSON_QUOTE(?))", cplID).
+		Where("dosen_id = ? AND mata_kuliah_id = ?", dosenID, mataKuliahID).
 		Where("status NOT IN ?", []string{"rejected", "cancelled"})
 	err := query.Count(&count).Error
 	return count > 0, err

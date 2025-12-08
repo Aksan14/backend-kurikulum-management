@@ -12,6 +12,7 @@ import (
 type CPLMKMappingService interface {
 	GetAll(req dto.CPLMKMappingListRequest) (*dto.PaginatedResponse, error)
 	GetByID(id string) (*dto.CPLMKMappingResponse, error)
+	GetCPLsByMataKuliahID(mataKuliahID string) ([]dto.CPLMKMappingResponse, error)
 	Upsert(req dto.UpsertCPLMKMappingRequest) (*dto.CPLMKMappingResponse, bool, error)
 	Delete(id string) error
 }
@@ -72,6 +73,20 @@ func (s *cplMKMappingService) GetByID(id string) (*dto.CPLMKMappingResponse, err
 
 	resp := toCPLMKMappingResponse(mapping)
 	return &resp, nil
+}
+
+func (s *cplMKMappingService) GetCPLsByMataKuliahID(mataKuliahID string) ([]dto.CPLMKMappingResponse, error) {
+	mappings, err := s.mappingRepo.FindByMataKuliahID(mataKuliahID)
+	if err != nil {
+		return nil, err
+	}
+
+	var responses []dto.CPLMKMappingResponse
+	for _, mapping := range mappings {
+		responses = append(responses, toCPLMKMappingResponse(&mapping))
+	}
+
+	return responses, nil
 }
 
 func (s *cplMKMappingService) Upsert(req dto.UpsertCPLMKMappingRequest) (*dto.CPLMKMappingResponse, bool, error) {

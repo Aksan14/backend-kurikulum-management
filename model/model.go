@@ -173,7 +173,7 @@ func (m *MataKuliah) BeforeCreate(tx *gorm.DB) error {
 // CPLAssignment Model
 type CPLAssignment struct {
 	ID              string     `gorm:"type:char(36);primary_key" json:"id"`
-	CPLID           string     `gorm:"type:char(36);not null;index" json:"cpl_id"`
+	CPLIDs          JSON       `gorm:"type:json;not null" json:"cpl_ids"`
 	DosenID         string     `gorm:"type:char(36);not null;index" json:"dosen_id"`
 	MataKuliah      *string    `gorm:"column:mata_kuliah;type:varchar(255)" json:"mata_kuliah"`
 	MataKuliahID    *string    `gorm:"column:mata_kuliah_id;type:char(36)" json:"mata_kuliah_id"`
@@ -188,7 +188,6 @@ type CPLAssignment struct {
 	CreatedAt       time.Time  `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt       time.Time  `gorm:"column:updated_at" json:"updated_at"`
 	DeletedAt       *time.Time `gorm:"column:deleted_at;index" json:"deleted_at"`
-	CPL             CPL        `gorm:"foreignKey:CPLID" json:"cpl,omitempty"`
 	Dosen           User       `gorm:"foreignKey:DosenID" json:"dosen,omitempty"`
 	MataKuliahRef   MataKuliah `gorm:"foreignKey:MataKuliahID" json:"mata_kuliah_ref,omitempty"`
 	Assigner        User       `gorm:"foreignKey:AssignedBy" json:"assigner,omitempty"`
@@ -274,14 +273,14 @@ func (r *RPS) BeforeCreate(tx *gorm.DB) error {
 
 // RPSCPMK Model
 type RPSCPMK struct {
-	ID        string    `gorm:"type:char(36);primary_key" json:"id"`
-	RPSID     string    `gorm:"type:char(36);not null;index" json:"rps_id"`
-	Kode      string    `gorm:"type:varchar(20);not null" json:"kode"`
-	Deskripsi string    `gorm:"type:text;not null" json:"deskripsi"`
-	Bobot     *float64  `gorm:"type:decimal(5,2)" json:"bobot"`
-	Urutan    int       `gorm:"not null;default:1" json:"urutan"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          string           `gorm:"type:char(36);primary_key" json:"id"`
+	RPSID       string           `gorm:"type:char(36);not null;index" json:"rps_id"`
+	Kode        string           `gorm:"type:varchar(20);not null" json:"kode"`
+	Deskripsi   string           `gorm:"type:text;not null" json:"deskripsi"`
+	Bobot       *float64         `gorm:"type:decimal(5,2)" json:"bobot"`
+	Urutan      int              `gorm:"not null;default:1" json:"urutan"`
+	CreatedAt   time.Time        `json:"created_at"`
+	UpdatedAt   time.Time        `json:"updated_at"`
 	SubCPMKs    []SubCPMK        `gorm:"foreignKey:CPMKID" json:"sub_cpmks,omitempty"`
 	CPLMappings []CPMKCPLMapping `gorm:"foreignKey:CPMKID" json:"cpl_mappings,omitempty"`
 }

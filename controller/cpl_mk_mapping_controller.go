@@ -162,3 +162,30 @@ func (c *CPLMKMappingController) DeleteMapping(ctx *gin.Context) {
 		Message: "Mapping berhasil dihapus",
 	})
 }
+
+func (c *CPLMKMappingController) GetCPLsByMataKuliahID(ctx *gin.Context) {
+	mataKuliahID := ctx.Query("mata_kuliah_id")
+	if mataKuliahID == "" {
+		ctx.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Message: "mata_kuliah_id parameter is required",
+		})
+		return
+	}
+
+	result, err := c.mappingService.GetCPLsByMataKuliahID(mataKuliahID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Message: "Gagal mengambil data CPL untuk mata kuliah",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Message: "Data CPL berhasil diambil",
+		Data:    result,
+	})
+}

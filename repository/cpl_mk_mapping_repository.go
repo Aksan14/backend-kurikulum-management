@@ -10,6 +10,7 @@ type CPLMKMappingRepository interface {
 	Create(mapping *model.CPLMKMapping) error
 	FindByID(id string) (*model.CPLMKMapping, error)
 	FindByCPLAndMK(cplID, mataKuliahID string) (*model.CPLMKMapping, error)
+	FindByMataKuliahID(mataKuliahID string) ([]model.CPLMKMapping, error)
 	FindAll(page, limit int, cplID, mataKuliahID, level string) ([]model.CPLMKMapping, int64, error)
 	Update(mapping *model.CPLMKMapping) error
 	Delete(id string) error
@@ -45,6 +46,13 @@ func (r *cplMKMappingRepository) FindByCPLAndMK(cplID, mataKuliahID string) (*mo
 		return nil, err
 	}
 	return &mapping, nil
+}
+
+func (r *cplMKMappingRepository) FindByMataKuliahID(mataKuliahID string) ([]model.CPLMKMapping, error) {
+	var mappings []model.CPLMKMapping
+	err := r.db.Preload("CPL").Preload("MataKuliah").
+		Where("mata_kuliah_id = ?", mataKuliahID).Find(&mappings).Error
+	return mappings, err
 }
 
 func (r *cplMKMappingRepository) FindAll(page, limit int, cplID, mataKuliahID, level string) ([]model.CPLMKMapping, int64, error) {

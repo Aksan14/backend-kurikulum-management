@@ -53,7 +53,7 @@ func main() {
 	cplService := service.NewCPLService(cplRepo)
 	mataKuliahService := service.NewMataKuliahService(mataKuliahRepo)
 	notificationService := service.NewNotificationService(notificationRepo)
-	cplAssignmentService := service.NewCPLAssignmentService(cplAssignmentRepo, notificationService)
+	cplAssignmentService := service.NewCPLAssignmentService(cplAssignmentRepo, cplRepo, cplMKMappingRepo, notificationService)
 	rpsService := service.NewRPSService(rpsRepo, mataKuliahRepo, rpsCPMKRepo, rpsRencanaRepo, rpsBahanRepo, rpsEvaluasiRepo, notificationService)
 	dashboardService := service.NewDashboardService(cplRepo, rpsRepo, cplAssignmentRepo, userRepo, generatedDocumentRepo)
 	documentService := service.NewDocumentService(documentTemplateRepo, generatedDocumentRepo)

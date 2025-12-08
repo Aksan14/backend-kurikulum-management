@@ -134,6 +134,7 @@ func SetupRouter(
 			{
 				cplMKMapping.GET("", controllers.CPLMKMappingController.GetAllMappings)
 				cplMKMapping.GET("/:id", controllers.CPLMKMappingController.GetMappingByID)
+				cplMKMapping.GET("/cpls-by-mata-kuliah", controllers.CPLMKMappingController.GetCPLsByMataKuliahID)
 				cplMKMapping.POST("/upsert", middleware.KaprodiOnly(), controllers.CPLMKMappingController.UpsertMapping)
 				cplMKMapping.DELETE("/:id", middleware.KaprodiOnly(), controllers.CPLMKMappingController.DeleteMapping)
 			}
@@ -143,7 +144,7 @@ func SetupRouter(
 			{
 				rps.GET("", controllers.RPSController.GetAllRPS)
 				rps.GET("/my", controllers.RPSController.GetMyRPS)
-				rps.GET("/cpmk", controllers.RPSController.GetAllCPMK) // Get all CPMK from all RPS
+				rps.GET("/cpmk", controllers.RPSController.GetAllCPMK)
 				rps.GET("/mata-kuliah/:mata_kuliah_id", controllers.RPSController.GetRPSByMataKuliah)
 				rps.GET("/:rps_id", controllers.RPSController.GetRPSByID)
 				rps.POST("", controllers.RPSController.CreateRPS)

@@ -3,6 +3,7 @@ package controller
 import (
 	"backend-kurikulum-apps/dto"
 	"backend-kurikulum-apps/service"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -100,7 +101,7 @@ func (c *CPLAssignmentController) GetAssignmentByID(ctx *gin.Context) {
 // @Produce json
 // @Security BearerAuth
 // @Param request body dto.CreateCPLAssignmentRequest true "Create Assignment Request"
-// @Success 201 {object} dto.APIResponse{data=dto.CPLAssignmentResponse}
+// @Success 201 {object} dto.APIResponse{data=[]dto.CPLAssignmentResponse}
 // @Failure 400 {object} dto.ErrorResponse
 // @Router /cpl-assignments [post]
 func (c *CPLAssignmentController) CreateAssignment(ctx *gin.Context) {
@@ -116,7 +117,17 @@ func (c *CPLAssignmentController) CreateAssignment(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.assignmentService.CreateAssignment(userID.(string), req)
+	// Validate that either CPL IDs are provided or MataKuliahID is provided
+	if len(req.CPLIDs) == 0 && req.MataKuliahID == nil {
+		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Message: "Data tidak valid",
+			Error:   "harus menyediakan cpl_ids atau mata_kuliah_id",
+		})
+		return
+	}
+
+	responses, err := c.assignmentService.CreateAssignment(userID.(string), req)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Success: false,
@@ -127,8 +138,8 @@ func (c *CPLAssignmentController) CreateAssignment(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusCreated, dto.APIResponse{
 		Success: true,
-		Message: "CPL Assignment berhasil dibuat",
-		Data:    response,
+		Message: fmt.Sprintf("%d CPL Assignment berhasil dibuat", len(responses)),
+		Data:    responses,
 	})
 }
 

@@ -11,6 +11,7 @@ type CPLRepository interface {
 	Create(cpl *model.CPL) error
 	FindByID(id string) (*model.CPL, error)
 	FindByKode(kode string) (*model.CPL, error)
+	FindByIDs(ids []string) ([]model.CPL, error)
 	FindAll(page, limit int, search, status, aspek, kategori, sortBy, sortOrder string) ([]model.CPL, int64, error)
 	Update(cpl *model.CPL) error
 	Delete(id string) error
@@ -48,6 +49,12 @@ func (r *cplRepository) FindByKode(kode string) (*model.CPL, error) {
 		return nil, err
 	}
 	return &cpl, nil
+}
+
+func (r *cplRepository) FindByIDs(ids []string) ([]model.CPL, error) {
+	var cpls []model.CPL
+	err := r.db.Where("id IN ?", ids).Find(&cpls).Error
+	return cpls, err
 }
 
 func (r *cplRepository) FindAll(page, limit int, search, status, aspek, kategori, sortBy, sortOrder string) ([]model.CPL, int64, error) {

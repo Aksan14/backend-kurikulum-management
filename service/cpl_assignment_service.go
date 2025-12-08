@@ -4,7 +4,9 @@ import (
 	"backend-kurikulum-apps/dto"
 	"backend-kurikulum-apps/model"
 	"backend-kurikulum-apps/repository"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -14,22 +16,28 @@ type CPLAssignmentService interface {
 	GetByDosenID(dosenID string, page, limit int, status string) (*dto.PaginatedResponse, error)
 	GetAssignmentsByDosen(dosenID string, status string) ([]dto.CPLAssignmentResponse, error)
 	GetAssignmentsByCPL(cplID string) ([]dto.CPLAssignmentResponse, error)
-	CreateAssignment(createdBy string, req dto.CreateCPLAssignmentRequest) (*dto.CPLAssignmentResponse, error)
+	CreateAssignment(createdBy string, req dto.CreateCPLAssignmentRequest) ([]dto.CPLAssignmentResponse, error)
 	UpdateAssignmentStatus(id string, req dto.UpdateCPLAssignmentStatusRequest) (*dto.CPLAssignmentResponse, error)
 	DeleteAssignment(id string) error
 }
 
 type cplAssignmentService struct {
 	assignmentRepo repository.CPLAssignmentRepository
+	cplRepo        repository.CPLRepository
+	mappingRepo    repository.CPLMKMappingRepository
 	notifService   NotificationService
 }
 
 func NewCPLAssignmentService(
 	assignmentRepo repository.CPLAssignmentRepository,
+	cplRepo repository.CPLRepository,
+	mappingRepo repository.CPLMKMappingRepository,
 	notifService NotificationService,
 ) CPLAssignmentService {
 	return &cplAssignmentService{
 		assignmentRepo: assignmentRepo,
+		cplRepo:        cplRepo,
+		mappingRepo:    mappingRepo,
 		notifService:   notifService,
 	}
 }
@@ -51,7 +59,7 @@ func (s *cplAssignmentService) GetAllAssignments(req dto.CPLAssignmentListReques
 
 	var responses []dto.CPLAssignmentResponse
 	for _, a := range assignments {
-		responses = append(responses, toCPLAssignmentResponse(&a))
+		responses = append(responses, s.toCPLAssignmentResponse(&a))
 	}
 
 	return &dto.PaginatedResponse{
@@ -69,7 +77,7 @@ func (s *cplAssignmentService) GetAssignmentByID(id string) (*dto.CPLAssignmentR
 		return nil, errors.New("assignment tidak ditemukan")
 	}
 
-	resp := toCPLAssignmentResponse(assignment)
+	resp := s.toCPLAssignmentResponse(assignment)
 	return &resp, nil
 }
 
@@ -88,7 +96,7 @@ func (s *cplAssignmentService) GetByDosenID(dosenID string, page, limit int, sta
 
 	var responses []dto.CPLAssignmentResponse
 	for _, a := range assignments {
-		responses = append(responses, toCPLAssignmentResponse(&a))
+		responses = append(responses, s.toCPLAssignmentResponse(&a))
 	}
 
 	return &dto.PaginatedResponse{
@@ -100,17 +108,45 @@ func (s *cplAssignmentService) GetByDosenID(dosenID string, page, limit int, sta
 	}, nil
 }
 
-func (s *cplAssignmentService) CreateAssignment(createdBy string, req dto.CreateCPLAssignmentRequest) (*dto.CPLAssignmentResponse, error) {
-	// Check for duplicate assignment
+func (s *cplAssignmentService) CreateAssignment(createdBy string, req dto.CreateCPLAssignmentRequest) ([]dto.CPLAssignmentResponse, error) {
+	var responses []dto.CPLAssignmentResponse
+	var cplIDs []string
+
+	// If no CPL IDs provided, get them from mata kuliah mapping
+	if len(req.CPLIDs) == 0 && req.MataKuliahID != nil {
+		mappings, err := s.mappingRepo.FindByMataKuliahID(*req.MataKuliahID)
+		if err != nil {
+			return nil, errors.New("gagal mendapatkan mapping CPL untuk mata kuliah")
+		}
+		if len(mappings) == 0 {
+			return nil, errors.New("tidak ada CPL yang ter-mapping dengan mata kuliah ini")
+		}
+		for _, mapping := range mappings {
+			cplIDs = append(cplIDs, mapping.CPLID)
+		}
+	} else {
+		cplIDs = req.CPLIDs
+	}
+
+	// Check for duplicate assignments for each CPL ID
 	if req.MataKuliahID != nil {
-		isDuplicate, _ := s.assignmentRepo.CheckDuplicateAssignment(req.CPLID, req.DosenID, *req.MataKuliahID)
-		if isDuplicate {
-			return nil, errors.New("penugasan sudah ada")
+		for _, cplID := range cplIDs {
+			isDuplicate, _ := s.assignmentRepo.CheckDuplicateAssignment(cplID, req.DosenID, *req.MataKuliahID)
+			if isDuplicate {
+				return nil, errors.New("penugasan sudah ada untuk CPL " + cplID)
+			}
 		}
 	}
 
+	// Convert CPL IDs to JSON
+	cplIDsJSON, err := json.Marshal(cplIDs)
+	if err != nil {
+		return nil, errors.New("gagal mengkonversi CPL IDs ke JSON")
+	}
+
+	// Create single assignment with all CPL IDs
 	assignment := &model.CPLAssignment{
-		CPLID:        req.CPLID,
+		CPLIDs:       model.JSON(cplIDsJSON),
 		DosenID:      req.DosenID,
 		MataKuliah:   req.MataKuliah,
 		MataKuliahID: req.MataKuliahID,
@@ -125,27 +161,29 @@ func (s *cplAssignmentService) CreateAssignment(createdBy string, req dto.Create
 		return nil, errors.New("gagal membuat assignment")
 	}
 
+	// Reload with relations
+	assignment, _ = s.assignmentRepo.FindByID(assignment.ID)
+	resp := s.toCPLAssignmentResponse(assignment)
+	responses = append(responses, resp)
+
 	// Send notification to dosen
 	mataKuliahName := ""
 	if req.MataKuliah != nil {
 		mataKuliahName = *req.MataKuliah
 	}
-	if s.notifService != nil {
+	if s.notifService != nil && len(responses) > 0 {
 		s.notifService.Create(dto.CreateNotificationRequest{
 			UserID:      req.DosenID,
 			Title:       "Penugasan CPL Baru",
-			Message:     "Anda mendapat penugasan CPL baru untuk mata kuliah " + mataKuliahName,
+			Message:     fmt.Sprintf("Anda mendapat penugasan %d CPL baru untuk mata kuliah %s", len(cplIDs), mataKuliahName),
 			Type:        "assignment",
-			RelatedID:   &assignment.ID,
+			RelatedID:   &responses[0].ID,
 			RelatedType: stringPtr("cpl_assignment"),
 			Priority:    "high",
 		})
 	}
 
-	// Reload with relations
-	assignment, _ = s.assignmentRepo.FindByID(assignment.ID)
-	resp := toCPLAssignmentResponse(assignment)
-	return &resp, nil
+	return responses, nil
 }
 
 func (s *cplAssignmentService) UpdateAssignmentStatus(id string, req dto.UpdateCPLAssignmentStatusRequest) (*dto.CPLAssignmentResponse, error) {
@@ -178,7 +216,7 @@ func (s *cplAssignmentService) UpdateAssignmentStatus(id string, req dto.UpdateC
 		return nil, errors.New("gagal mengupdate status")
 	}
 
-	resp := toCPLAssignmentResponse(assignment)
+	resp := s.toCPLAssignmentResponse(assignment)
 	return &resp, nil
 }
 
@@ -199,7 +237,7 @@ func (s *cplAssignmentService) GetAssignmentsByDosen(dosenID string, status stri
 
 	var responses []dto.CPLAssignmentResponse
 	for _, a := range assignments {
-		responses = append(responses, toCPLAssignmentResponse(&a))
+		responses = append(responses, s.toCPLAssignmentResponse(&a))
 	}
 
 	return responses, nil
@@ -213,16 +251,21 @@ func (s *cplAssignmentService) GetAssignmentsByCPL(cplID string) ([]dto.CPLAssig
 
 	var responses []dto.CPLAssignmentResponse
 	for _, a := range assignments {
-		responses = append(responses, toCPLAssignmentResponse(&a))
+		responses = append(responses, s.toCPLAssignmentResponse(&a))
 	}
 
 	return responses, nil
 }
 
-func toCPLAssignmentResponse(a *model.CPLAssignment) dto.CPLAssignmentResponse {
+func (s *cplAssignmentService) toCPLAssignmentResponse(a *model.CPLAssignment) dto.CPLAssignmentResponse {
+	var cplIDs []string
+	if len(a.CPLIDs) > 0 {
+		json.Unmarshal(a.CPLIDs, &cplIDs)
+	}
+
 	resp := dto.CPLAssignmentResponse{
 		ID:              a.ID,
-		CPLID:           a.CPLID,
+		CPLIDs:          cplIDs,
 		DosenID:         a.DosenID,
 		MataKuliah:      a.MataKuliah,
 		MataKuliahID:    a.MataKuliahID,
@@ -236,9 +279,14 @@ func toCPLAssignmentResponse(a *model.CPLAssignment) dto.CPLAssignmentResponse {
 		CompletedAt:     a.CompletedAt,
 	}
 
-	if a.CPL.ID != "" {
-		cpl := toCPLResponse(&a.CPL)
-		resp.CPL = &cpl
+	if len(cplIDs) > 0 {
+		// Fetch CPLs by IDs
+		cpls, err := s.cplRepo.FindByIDs(cplIDs)
+		if err == nil {
+			for _, cpl := range cpls {
+				resp.CPLs = append(resp.CPLs, toCPLResponse(&cpl))
+			}
+		}
 	}
 
 	if a.Dosen.ID != "" {
