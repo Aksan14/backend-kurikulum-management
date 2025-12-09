@@ -68,7 +68,7 @@ func (r *cplAssignmentRepository) FindAll(page, limit int, cplID, dosenID, statu
 	}
 
 	offset := (page - 1) * limit
-	err := query.Preload("Dosen").Preload("MataKuliahRef").
+	err := query.Preload("Dosen").Preload("MataKuliahRef").Preload("Assigner").
 		Order(sortBy + " " + sortOrder).Offset(offset).Limit(limit).Find(&assignments).Error
 	return assignments, total, err
 }
@@ -85,7 +85,7 @@ func (r *cplAssignmentRepository) FindByDosenID(dosenID string, page, limit int,
 	query.Count(&total)
 
 	offset := (page - 1) * limit
-	err := query.Preload("MataKuliahRef").
+	err := query.Preload("Dosen").Preload("MataKuliahRef").Preload("Assigner").
 		Order("assigned_at DESC").Offset(offset).Limit(limit).Find(&assignments).Error
 	return assignments, total, err
 }

@@ -259,7 +259,7 @@ func (s *cplAssignmentService) GetAssignmentsByCPL(cplID string) ([]dto.CPLAssig
 
 func (s *cplAssignmentService) toCPLAssignmentResponse(a *model.CPLAssignment) dto.CPLAssignmentResponse {
 	var cplIDs []string
-	if len(a.CPLIDs) > 0 {
+	if len(a.CPLIDs) > 0 && string(a.CPLIDs) != "null" {
 		json.Unmarshal(a.CPLIDs, &cplIDs)
 	}
 
@@ -285,6 +285,22 @@ func (s *cplAssignmentService) toCPLAssignmentResponse(a *model.CPLAssignment) d
 		if err == nil {
 			for _, cpl := range cpls {
 				resp.CPLs = append(resp.CPLs, toCPLResponse(&cpl))
+			}
+		}
+	} else if a.MataKuliahID != nil {
+		// Fallback: get CPLs from mapping if cpl_ids is empty/null but mata_kuliah_id exists
+		mappings, err := s.mappingRepo.FindByMataKuliahID(*a.MataKuliahID)
+		if err == nil && len(mappings) > 0 {
+			for _, mapping := range mappings {
+				cplIDs = append(cplIDs, mapping.CPLID)
+			}
+			resp.CPLIDs = cplIDs
+			// Fetch CPLs by IDs from mapping
+			cpls, err := s.cplRepo.FindByIDs(cplIDs)
+			if err == nil {
+				for _, cpl := range cpls {
+					resp.CPLs = append(resp.CPLs, toCPLResponse(&cpl))
+				}
 			}
 		}
 	}
