@@ -148,14 +148,14 @@ func (c *RPSController) CreateRPS(ctx *gin.Context) {
 // @Produce json
 // @Security BearerAuth
 // @Param id path string true "RPS ID"
-// @Param request body dto.RPSRequest true "Update RPS Request"
+// @Param request body dto.UpdateRPSRequest true "Update RPS Request"
 // @Success 200 {object} dto.APIResponse{data=dto.RPSResponse}
 // @Failure 400 {object} dto.ErrorResponse
 // @Router /rps/{id} [put]
 func (c *RPSController) UpdateRPS(ctx *gin.Context) {
 	id := ctx.Param("rps_id")
 
-	var req dto.RPSRequest
+	var req dto.UpdateRPSRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Success: false,
@@ -165,7 +165,7 @@ func (c *RPSController) UpdateRPS(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.rpsService.UpdateRPS(id, req)
+	response, err := c.rpsService.UpdateRPSPartial(id, req)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Success: false,
@@ -864,146 +864,6 @@ func (c *RPSController) GetBahanBacaanByRPS(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, dto.APIResponse{
 		Success: true,
 		Message: "Berhasil mendapatkan data Bahan Bacaan",
-		Data:    response,
-	})
-}
-
-// ========== Evaluasi Endpoints ==========
-
-// AddEvaluasi godoc
-// @Summary Add Evaluasi to RPS
-// @Description Add Evaluasi (Assessment) to RPS
-// @Tags RPS
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param rps_id path string true "RPS ID"
-// @Param request body dto.RPSEvaluasiRequest true "Create Evaluasi Request"
-// @Success 201 {object} dto.APIResponse{data=dto.RPSEvaluasiResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Router /rps/{rps_id}/evaluasi [post]
-func (c *RPSController) AddEvaluasi(ctx *gin.Context) {
-	rpsID := ctx.Param("rps_id")
-
-	var req dto.RPSEvaluasiRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Success: false,
-			Message: "Data tidak valid",
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	response, err := c.rpsService.AddEvaluasi(rpsID, req)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Success: false,
-			Message: err.Error(),
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusCreated, dto.APIResponse{
-		Success: true,
-		Message: "Evaluasi berhasil ditambahkan",
-		Data:    response,
-	})
-}
-
-// UpdateEvaluasi godoc
-// @Summary Update Evaluasi
-// @Description Update Evaluasi data
-// @Tags RPS
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param evaluasi_id path string true "Evaluasi ID"
-// @Param request body dto.RPSEvaluasiRequest true "Update Evaluasi Request"
-// @Success 200 {object} dto.APIResponse{data=dto.RPSEvaluasiResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Router /rps/evaluasi/{evaluasi_id} [put]
-func (c *RPSController) UpdateEvaluasi(ctx *gin.Context) {
-	evaluasiID := ctx.Param("evaluasi_id")
-
-	var req dto.RPSEvaluasiRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Success: false,
-			Message: "Data tidak valid",
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	response, err := c.rpsService.UpdateEvaluasi(evaluasiID, req)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Success: false,
-			Message: err.Error(),
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, dto.APIResponse{
-		Success: true,
-		Message: "Evaluasi berhasil diupdate",
-		Data:    response,
-	})
-}
-
-// DeleteEvaluasi godoc
-// @Summary Delete Evaluasi
-// @Description Delete Evaluasi from RPS
-// @Tags RPS
-// @Produce json
-// @Security BearerAuth
-// @Param evaluasi_id path string true "Evaluasi ID"
-// @Success 200 {object} dto.APIResponse
-// @Failure 400 {object} dto.ErrorResponse
-// @Router /rps/evaluasi/{evaluasi_id} [delete]
-func (c *RPSController) DeleteEvaluasi(ctx *gin.Context) {
-	evaluasiID := ctx.Param("evaluasi_id")
-
-	if err := c.rpsService.DeleteEvaluasi(evaluasiID); err != nil {
-		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Success: false,
-			Message: err.Error(),
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, dto.APIResponse{
-		Success: true,
-		Message: "Evaluasi berhasil dihapus",
-	})
-}
-
-// GetEvaluasiByRPS godoc
-// @Summary Get Evaluasi by RPS ID
-// @Description Get all Evaluasi for a specific RPS
-// @Tags RPS
-// @Produce json
-// @Security BearerAuth
-// @Param rps_id path string true "RPS ID"
-// @Success 200 {object} dto.APIResponse{data=[]dto.RPSEvaluasiResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Router /rps/{rps_id}/evaluasi [get]
-func (c *RPSController) GetEvaluasiByRPS(ctx *gin.Context) {
-	rpsID := ctx.Param("rps_id")
-
-	response, err := c.rpsService.GetEvaluasiByRPS(rpsID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Success: false,
-			Message: err.Error(),
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, dto.APIResponse{
-		Success: true,
-		Message: "Berhasil mendapatkan data Evaluasi",
 		Data:    response,
 	})
 }

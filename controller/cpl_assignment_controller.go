@@ -18,22 +18,6 @@ func NewCPLAssignmentController(assignmentService service.CPLAssignmentService) 
 	return &CPLAssignmentController{assignmentService: assignmentService}
 }
 
-// GetAllAssignments godoc
-// @Summary Get all CPL Assignments
-// @Description Get all CPL Assignments dengan pagination
-// @Tags CPLAssignment
-// @Produce json
-// @Security BearerAuth
-// @Param page query int false "Page number" default(1)
-// @Param limit query int false "Items per page" default(10)
-// @Param dosen_id query string false "Filter by dosen"
-// @Param cpl_id query string false "Filter by CPL"
-// @Param status query string false "Filter by status"
-// @Param sort_by query string false "Sort by field"
-// @Param sort_order query string false "Sort order (asc/desc)"
-// @Success 200 {object} dto.APIResponse{data=dto.PaginatedResponse}
-// @Failure 401 {object} dto.ErrorResponse
-// @Router /cpl-assignments [get]
 func (c *CPLAssignmentController) GetAllAssignments(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "10"))
@@ -64,16 +48,7 @@ func (c *CPLAssignmentController) GetAllAssignments(ctx *gin.Context) {
 	})
 }
 
-// GetAssignmentByID godoc
-// @Summary Get CPL Assignment by ID
-// @Description Get detail CPL Assignment berdasarkan ID
-// @Tags CPLAssignment
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Assignment ID"
-// @Success 200 {object} dto.APIResponse{data=dto.CPLAssignmentResponse}
-// @Failure 404 {object} dto.ErrorResponse
-// @Router /cpl-assignments/{id} [get]
+
 func (c *CPLAssignmentController) GetAssignmentByID(ctx *gin.Context) {
 	id := ctx.Param("id")
 
@@ -93,17 +68,7 @@ func (c *CPLAssignmentController) GetAssignmentByID(ctx *gin.Context) {
 	})
 }
 
-// CreateAssignment godoc
-// @Summary Create new CPL Assignment
-// @Description Create new CPL Assignment (Kaprodi only)
-// @Tags CPLAssignment
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param request body dto.CreateCPLAssignmentRequest true "Create Assignment Request"
-// @Success 201 {object} dto.APIResponse{data=[]dto.CPLAssignmentResponse}
-// @Failure 400 {object} dto.ErrorResponse
-// @Router /cpl-assignments [post]
+
 func (c *CPLAssignmentController) CreateAssignment(ctx *gin.Context) {
 	userID, _ := ctx.Get("userID")
 

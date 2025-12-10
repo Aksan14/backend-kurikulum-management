@@ -123,17 +123,20 @@ type RPSRencanaTugasService interface {
 }
 
 type rpsRencanaTugasService struct {
-	tugasRepo repository.RPSRencanaTugasRepository
-	rpsRepo   repository.RPSRepository
+	tugasRepo   repository.RPSRencanaTugasRepository
+	rpsRepo     repository.RPSRepository
+	subCpmkRepo repository.SubCPMKRepository
 }
 
 func NewRPSRencanaTugasService(
 	tugasRepo repository.RPSRencanaTugasRepository,
 	rpsRepo repository.RPSRepository,
+	subCpmkRepo repository.SubCPMKRepository,
 ) RPSRencanaTugasService {
 	return &rpsRencanaTugasService{
-		tugasRepo: tugasRepo,
-		rpsRepo:   rpsRepo,
+		tugasRepo:   tugasRepo,
+		rpsRepo:     rpsRepo,
+		subCpmkRepo: subCpmkRepo,
 	}
 }
 
@@ -145,7 +148,7 @@ func (s *rpsRencanaTugasService) GetByRPSID(rpsID string) ([]dto.RPSRencanaTugas
 
 	var responses []dto.RPSRencanaTugasResponse
 	for _, tugas := range tugasList {
-		responses = append(responses, toRPSRencanaTugasResponse(&tugas))
+		responses = append(responses, s.toRPSRencanaTugasResponseWithSubCPMK(&tugas))
 	}
 	return responses, nil
 }
@@ -155,7 +158,7 @@ func (s *rpsRencanaTugasService) GetByID(id string) (*dto.RPSRencanaTugasRespons
 	if err != nil {
 		return nil, errors.New("rencana tugas tidak ditemukan")
 	}
-	resp := toRPSRencanaTugasResponse(tugas)
+	resp := s.toRPSRencanaTugasResponseWithSubCPMK(tugas)
 	return &resp, nil
 }
 
@@ -189,13 +192,15 @@ func (s *rpsRencanaTugasService) Create(rpsID string, req dto.RPSRencanaTugasReq
 		KriteriaPenilaian:     req.KriteriaPenilaian,
 		TeknikPenilaian:       req.TeknikPenilaian,
 		Bobot:                 req.Bobot,
+		SubCPMKID:             req.SubCPMKID,
+		DaftarRujukan:         req.DaftarRujukan,
 	}
 
 	if err := s.tugasRepo.Create(tugas); err != nil {
 		return nil, errors.New("gagal membuat rencana tugas")
 	}
 
-	resp := toRPSRencanaTugasResponse(tugas)
+	resp := s.toRPSRencanaTugasResponseWithSubCPMK(tugas)
 	return &resp, nil
 }
 
@@ -223,12 +228,14 @@ func (s *rpsRencanaTugasService) Update(id string, req dto.RPSRencanaTugasReques
 	tugas.KriteriaPenilaian = req.KriteriaPenilaian
 	tugas.TeknikPenilaian = req.TeknikPenilaian
 	tugas.Bobot = req.Bobot
+	tugas.SubCPMKID = req.SubCPMKID
+	tugas.DaftarRujukan = req.DaftarRujukan
 
 	if err := s.tugasRepo.Update(tugas); err != nil {
 		return nil, errors.New("gagal mengupdate rencana tugas")
 	}
 
-	resp := toRPSRencanaTugasResponse(tugas)
+	resp := s.toRPSRencanaTugasResponseWithSubCPMK(tugas)
 	return &resp, nil
 }
 
@@ -250,9 +257,34 @@ func toRPSRencanaTugasResponse(tugas *model.RPSRencanaTugas) dto.RPSRencanaTugas
 		KriteriaPenilaian:     tugas.KriteriaPenilaian,
 		TeknikPenilaian:       tugas.TeknikPenilaian,
 		Bobot:                 tugas.Bobot,
+		SubCPMKID:             tugas.SubCPMKID,
+		DaftarRujukan:         tugas.DaftarRujukan,
 		CreatedAt:             tugas.CreatedAt,
 		UpdatedAt:             tugas.UpdatedAt,
 	}
+}
+
+// toRPSRencanaTugasResponseWithSubCPMK - mengambil data SubCPMK berdasarkan SubCPMKID (Indikator = deskripsi sub_cpmk)
+func (s *rpsRencanaTugasService) toRPSRencanaTugasResponseWithSubCPMK(tugas *model.RPSRencanaTugas) dto.RPSRencanaTugasResponse {
+	resp := toRPSRencanaTugasResponse(tugas)
+
+	// Populate SubCPMK dari database berdasarkan SubCPMKID
+	if resp.SubCPMKID != nil && *resp.SubCPMKID != "" {
+		subCpmk, err := s.subCpmkRepo.FindByID(*resp.SubCPMKID)
+		if err == nil && subCpmk != nil {
+			resp.SubCPMK = &dto.SubCPMKResponse{
+				ID:        subCpmk.ID,
+				CPMKID:    subCpmk.CPMKID,
+				Kode:      subCpmk.Kode,
+				Deskripsi: subCpmk.Deskripsi, // Ini adalah INDIKATOR
+				Urutan:    subCpmk.Urutan,
+				CreatedAt: subCpmk.CreatedAt,
+				UpdatedAt: subCpmk.UpdatedAt,
+			}
+		}
+	}
+
+	return resp
 }
 
 // ============ RPS Analisis Ketercapaian CPL Service ============
@@ -398,169 +430,6 @@ func toRPSAnalisisKetercapaianCPLResponse(analisis *model.RPSAnalisisKetercapaia
 	return resp
 }
 
-// ============ RPS Skala Penilaian Service ============
-
-type RPSSkalaPenilaianService interface {
-	GetByRPSID(rpsID string) ([]dto.RPSSkalaPenilaianResponse, error)
-	GetByID(id string) (*dto.RPSSkalaPenilaianResponse, error)
-	Create(rpsID string, req dto.RPSSkalaPenilaianRequest) (*dto.RPSSkalaPenilaianResponse, error)
-	CreateBatch(rpsID string, req dto.RPSBatchSkalaPenilaianRequest) ([]dto.RPSSkalaPenilaianResponse, error)
-	CreateDefault(rpsID string) ([]dto.RPSSkalaPenilaianResponse, error)
-	Update(id string, req dto.RPSSkalaPenilaianRequest) (*dto.RPSSkalaPenilaianResponse, error)
-	Delete(id string) error
-	DeleteByRPSID(rpsID string) error
-}
-
-type rpsSkalaPenilaianService struct {
-	skalaRepo repository.RPSSkalaPenilaianRepository
-	rpsRepo   repository.RPSRepository
-}
-
-func NewRPSSkalaPenilaianService(
-	skalaRepo repository.RPSSkalaPenilaianRepository,
-	rpsRepo repository.RPSRepository,
-) RPSSkalaPenilaianService {
-	return &rpsSkalaPenilaianService{
-		skalaRepo: skalaRepo,
-		rpsRepo:   rpsRepo,
-	}
-}
-
-func (s *rpsSkalaPenilaianService) GetByRPSID(rpsID string) ([]dto.RPSSkalaPenilaianResponse, error) {
-	skalaList, err := s.skalaRepo.FindByRPSID(rpsID)
-	if err != nil {
-		return nil, err
-	}
-
-	var responses []dto.RPSSkalaPenilaianResponse
-	for _, skala := range skalaList {
-		responses = append(responses, toRPSSkalaPenilaianResponse(&skala))
-	}
-	return responses, nil
-}
-
-func (s *rpsSkalaPenilaianService) GetByID(id string) (*dto.RPSSkalaPenilaianResponse, error) {
-	skala, err := s.skalaRepo.FindByID(id)
-	if err != nil {
-		return nil, errors.New("skala penilaian tidak ditemukan")
-	}
-	resp := toRPSSkalaPenilaianResponse(skala)
-	return &resp, nil
-}
-
-func (s *rpsSkalaPenilaianService) Create(rpsID string, req dto.RPSSkalaPenilaianRequest) (*dto.RPSSkalaPenilaianResponse, error) {
-	// Verify RPS exists
-	_, err := s.rpsRepo.FindByID(rpsID)
-	if err != nil {
-		return nil, errors.New("RPS tidak ditemukan")
-	}
-
-	skala := &model.RPSSkalaPenilaian{
-		RPSID:      rpsID,
-		NilaiMin:   req.NilaiMin,
-		NilaiMax:   req.NilaiMax,
-		HurufMutu:  req.HurufMutu,
-		BobotNilai: req.BobotNilai,
-		IsLulus:    req.IsLulus,
-	}
-
-	if err := s.skalaRepo.Create(skala); err != nil {
-		return nil, errors.New("gagal membuat skala penilaian")
-	}
-
-	resp := toRPSSkalaPenilaianResponse(skala)
-	return &resp, nil
-}
-
-func (s *rpsSkalaPenilaianService) CreateBatch(rpsID string, req dto.RPSBatchSkalaPenilaianRequest) ([]dto.RPSSkalaPenilaianResponse, error) {
-	// Verify RPS exists
-	_, err := s.rpsRepo.FindByID(rpsID)
-	if err != nil {
-		return nil, errors.New("RPS tidak ditemukan")
-	}
-
-	// Delete existing skala
-	s.skalaRepo.DeleteByRPSID(rpsID)
-
-	var skalaList []model.RPSSkalaPenilaian
-	for _, skalaReq := range req.SkalaPenilaian {
-		skalaList = append(skalaList, model.RPSSkalaPenilaian{
-			RPSID:      rpsID,
-			NilaiMin:   skalaReq.NilaiMin,
-			NilaiMax:   skalaReq.NilaiMax,
-			HurufMutu:  skalaReq.HurufMutu,
-			BobotNilai: skalaReq.BobotNilai,
-			IsLulus:    skalaReq.IsLulus,
-		})
-	}
-
-	if err := s.skalaRepo.CreateBatch(skalaList); err != nil {
-		return nil, errors.New("gagal membuat skala penilaian")
-	}
-
-	// Return created items
-	return s.GetByRPSID(rpsID)
-}
-
-func (s *rpsSkalaPenilaianService) CreateDefault(rpsID string) ([]dto.RPSSkalaPenilaianResponse, error) {
-	// Verify RPS exists
-	_, err := s.rpsRepo.FindByID(rpsID)
-	if err != nil {
-		return nil, errors.New("RPS tidak ditemukan")
-	}
-
-	// Delete existing skala
-	s.skalaRepo.DeleteByRPSID(rpsID)
-
-	// Create default
-	if err := s.skalaRepo.CreateDefaultSkala(rpsID); err != nil {
-		return nil, errors.New("gagal membuat skala penilaian default")
-	}
-
-	return s.GetByRPSID(rpsID)
-}
-
-func (s *rpsSkalaPenilaianService) Update(id string, req dto.RPSSkalaPenilaianRequest) (*dto.RPSSkalaPenilaianResponse, error) {
-	skala, err := s.skalaRepo.FindByID(id)
-	if err != nil {
-		return nil, errors.New("skala penilaian tidak ditemukan")
-	}
-
-	skala.NilaiMin = req.NilaiMin
-	skala.NilaiMax = req.NilaiMax
-	skala.HurufMutu = req.HurufMutu
-	skala.BobotNilai = req.BobotNilai
-	skala.IsLulus = req.IsLulus
-
-	if err := s.skalaRepo.Update(skala); err != nil {
-		return nil, errors.New("gagal mengupdate skala penilaian")
-	}
-
-	resp := toRPSSkalaPenilaianResponse(skala)
-	return &resp, nil
-}
-
-func (s *rpsSkalaPenilaianService) Delete(id string) error {
-	return s.skalaRepo.Delete(id)
-}
-
-func (s *rpsSkalaPenilaianService) DeleteByRPSID(rpsID string) error {
-	return s.skalaRepo.DeleteByRPSID(rpsID)
-}
-
-func toRPSSkalaPenilaianResponse(skala *model.RPSSkalaPenilaian) dto.RPSSkalaPenilaianResponse {
-	return dto.RPSSkalaPenilaianResponse{
-		ID:         skala.ID,
-		RPSID:      skala.RPSID,
-		NilaiMin:   skala.NilaiMin,
-		NilaiMax:   skala.NilaiMax,
-		HurufMutu:  skala.HurufMutu,
-		BobotNilai: skala.BobotNilai,
-		IsLulus:    skala.IsLulus,
-		CreatedAt:  skala.CreatedAt,
-	}
-}
-
 // ============ RPSExtendedService - Combined Interface ============
 
 type RPSExtendedService interface {
@@ -581,33 +450,23 @@ type RPSExtendedService interface {
 	GetAnalisisKetercapaianCPLByRPS(rpsID string) ([]dto.RPSAnalisisKetercapaianCPLResponse, error)
 	UpdateAnalisisKetercapaianCPL(id string, req dto.RPSAnalisisKetercapaianCPLRequest) (*dto.RPSAnalisisKetercapaianCPLResponse, error)
 	DeleteAnalisisKetercapaianCPL(id string) error
-
-	// Skala Penilaian Methods
-	AddSkalaPenilaian(rpsID string, req dto.RPSSkalaPenilaianRequest) (*dto.RPSSkalaPenilaianResponse, error)
-	GetSkalaPenilaianByRPS(rpsID string) ([]dto.RPSSkalaPenilaianResponse, error)
-	UpdateSkalaPenilaian(id string, req dto.RPSSkalaPenilaianRequest) (*dto.RPSSkalaPenilaianResponse, error)
-	DeleteSkalaPenilaian(id string) error
-	SetDefaultSkalaPenilaian(rpsID string, req dto.RPSBatchSkalaPenilaianRequest) ([]dto.RPSSkalaPenilaianResponse, error)
 }
 
 type rpsExtendedService struct {
-	subCpmkService    SubCPMKService
-	rencanaTugasSvc   RPSRencanaTugasService
-	analisisCPLSvc    RPSAnalisisKetercapaianCPLService
-	skalaPenilaianSvc RPSSkalaPenilaianService
+	subCpmkService  SubCPMKService
+	rencanaTugasSvc RPSRencanaTugasService
+	analisisCPLSvc  RPSAnalisisKetercapaianCPLService
 }
 
 func NewRPSExtendedService(
 	subCpmkService SubCPMKService,
 	rencanaTugasSvc RPSRencanaTugasService,
 	analisisCPLSvc RPSAnalisisKetercapaianCPLService,
-	skalaPenilaianSvc RPSSkalaPenilaianService,
 ) RPSExtendedService {
 	return &rpsExtendedService{
-		subCpmkService:    subCpmkService,
-		rencanaTugasSvc:   rencanaTugasSvc,
-		analisisCPLSvc:    analisisCPLSvc,
-		skalaPenilaianSvc: skalaPenilaianSvc,
+		subCpmkService:  subCpmkService,
+		rencanaTugasSvc: rencanaTugasSvc,
+		analisisCPLSvc:  analisisCPLSvc,
 	}
 }
 
@@ -660,25 +519,4 @@ func (s *rpsExtendedService) UpdateAnalisisKetercapaianCPL(id string, req dto.RP
 
 func (s *rpsExtendedService) DeleteAnalisisKetercapaianCPL(id string) error {
 	return s.analisisCPLSvc.Delete(id)
-}
-
-// Skala Penilaian implementations
-func (s *rpsExtendedService) AddSkalaPenilaian(rpsID string, req dto.RPSSkalaPenilaianRequest) (*dto.RPSSkalaPenilaianResponse, error) {
-	return s.skalaPenilaianSvc.Create(rpsID, req)
-}
-
-func (s *rpsExtendedService) GetSkalaPenilaianByRPS(rpsID string) ([]dto.RPSSkalaPenilaianResponse, error) {
-	return s.skalaPenilaianSvc.GetByRPSID(rpsID)
-}
-
-func (s *rpsExtendedService) UpdateSkalaPenilaian(id string, req dto.RPSSkalaPenilaianRequest) (*dto.RPSSkalaPenilaianResponse, error) {
-	return s.skalaPenilaianSvc.Update(id, req)
-}
-
-func (s *rpsExtendedService) DeleteSkalaPenilaian(id string) error {
-	return s.skalaPenilaianSvc.Delete(id)
-}
-
-func (s *rpsExtendedService) SetDefaultSkalaPenilaian(rpsID string, req dto.RPSBatchSkalaPenilaianRequest) ([]dto.RPSSkalaPenilaianResponse, error) {
-	return s.skalaPenilaianSvc.CreateBatch(rpsID, req)
 }

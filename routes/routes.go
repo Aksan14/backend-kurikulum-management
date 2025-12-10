@@ -173,12 +173,6 @@ func SetupRouter(
 				rps.PUT("/bahan-bacaan/:bahan_id", controllers.RPSController.UpdateBahanBacaan)
 				rps.DELETE("/bahan-bacaan/:bahan_id", controllers.RPSController.DeleteBahanBacaan)
 
-				// Evaluasi sub-routes
-				rps.POST("/:rps_id/evaluasi", controllers.RPSController.AddEvaluasi)
-				rps.GET("/:rps_id/evaluasi", controllers.RPSController.GetEvaluasiByRPS)
-				rps.PUT("/evaluasi/:evaluasi_id", controllers.RPSController.UpdateEvaluasi)
-				rps.DELETE("/evaluasi/:evaluasi_id", controllers.RPSController.DeleteEvaluasi)
-
 				// Sub-CPMK sub-routes (Extended)
 				rps.POST("/cpmk/:cpmk_id/sub-cpmk", controllers.RPSExtendedController.AddSubCPMK)
 				rps.GET("/cpmk/:cpmk_id/sub-cpmk", controllers.RPSExtendedController.GetSubCPMKByCPMK)
@@ -196,13 +190,6 @@ func SetupRouter(
 				rps.GET("/:rps_id/analisis-ketercapaian", controllers.RPSExtendedController.GetAnalisisKetercapaianCPLByRPS)
 				rps.PUT("/analisis-ketercapaian/:analisis_id", controllers.RPSExtendedController.UpdateAnalisisKetercapaianCPL)
 				rps.DELETE("/analisis-ketercapaian/:analisis_id", controllers.RPSExtendedController.DeleteAnalisisKetercapaianCPL)
-
-				// Skala Penilaian sub-routes (Extended)
-				rps.POST("/:rps_id/skala-penilaian", controllers.RPSExtendedController.AddSkalaPenilaian)
-				rps.GET("/:rps_id/skala-penilaian", controllers.RPSExtendedController.GetSkalaPenilaianByRPS)
-				rps.PUT("/skala-penilaian/:skala_id", controllers.RPSExtendedController.UpdateSkalaPenilaian)
-				rps.DELETE("/skala-penilaian/:skala_id", controllers.RPSExtendedController.DeleteSkalaPenilaian)
-				rps.POST("/:rps_id/skala-penilaian/batch", controllers.RPSExtendedController.SetDefaultSkalaPenilaian)
 			}
 
 			// Notification routes

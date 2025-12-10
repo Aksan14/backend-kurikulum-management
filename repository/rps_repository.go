@@ -13,6 +13,7 @@ type RPSRepository interface {
 	FindAll(page, limit int, search, mataKuliahID, dosenID, status, tahunAkademik string, semester int, sortBy, sortOrder string) ([]model.RPS, int64, error)
 	FindByDosenID(dosenID string, page, limit int, status string) ([]model.RPS, int64, error)
 	Update(rps *model.RPS) error
+	UpdateFields(id string, updates map[string]interface{}) error
 	Delete(id string) error
 	UpdateStatus(id, status, reviewedBy string, reviewNotes *string) error
 	FindMinimalByID(id string) (*model.RPS, error)
@@ -35,7 +36,7 @@ func (r *rpsRepository) Create(rps *model.RPS) error {
 func (r *rpsRepository) FindByID(id string) (*model.RPS, error) {
 	var rps model.RPS
 	err := r.db.Preload("MataKuliah").Preload("Dosen").Preload("Reviewer").
-		Preload("CPMK").Preload("RencanaPembelajaran").Preload("BahanBacaan").Preload("Evaluasi").
+		Preload("CPMK").Preload("RencanaPembelajaran").Preload("BahanBacaan").
 		Where("id = ?", id).First(&rps).Error
 	if err != nil {
 		return nil, err
@@ -102,6 +103,10 @@ func (r *rpsRepository) FindByDosenID(dosenID string, page, limit int, status st
 
 func (r *rpsRepository) Update(rps *model.RPS) error {
 	return r.db.Save(rps).Error
+}
+
+func (r *rpsRepository) UpdateFields(id string, updates map[string]interface{}) error {
+	return r.db.Model(&model.RPS{}).Where("id = ?", id).Updates(updates).Error
 }
 
 func (r *rpsRepository) Delete(id string) error {

@@ -17,6 +17,7 @@ type RPSService interface {
 	GetRPSByMataKuliah(mkID string) ([]dto.RPSResponse, error)
 	CreateRPS(dosenID, dosenNama string, req dto.RPSRequest) (*dto.RPSResponse, error)
 	UpdateRPS(id string, req dto.RPSRequest) (*dto.RPSResponse, error)
+	UpdateRPSPartial(id string, req dto.UpdateRPSRequest) (*dto.RPSResponse, error)
 	DeleteRPS(id string) error
 	UpdateRPSStatus(id, reviewerID string, req dto.RPSStatusUpdateRequest) (*dto.RPSResponse, error)
 	SubmitRPS(id string) (*dto.RPSResponse, error)
@@ -42,12 +43,6 @@ type RPSService interface {
 	GetBahanBacaanByRPS(rpsID string) ([]dto.RPSBahanBacaanResponse, error)
 	UpdateBahanBacaan(id string, req dto.RPSBahanBacaanRequest) (*dto.RPSBahanBacaanResponse, error)
 	DeleteBahanBacaan(id string) error
-
-	// Evaluasi
-	AddEvaluasi(rpsID string, req dto.RPSEvaluasiRequest) (*dto.RPSEvaluasiResponse, error)
-	GetEvaluasiByRPS(rpsID string) ([]dto.RPSEvaluasiResponse, error)
-	UpdateEvaluasi(id string, req dto.RPSEvaluasiRequest) (*dto.RPSEvaluasiResponse, error)
-	DeleteEvaluasi(id string) error
 }
 
 type rpsService struct {
@@ -56,7 +51,7 @@ type rpsService struct {
 	cpmkRepo     repository.RPSCPMKRepository
 	rencanaRepo  repository.RPSRencanaPembelajaranRepository
 	bahanRepo    repository.RPSBahanBacaanRepository
-	evaluasiRepo repository.RPSEvaluasiRepository
+	subCpmkRepo  repository.SubCPMKRepository
 	notifService NotificationService
 }
 
@@ -66,7 +61,7 @@ func NewRPSService(
 	cpmkRepo repository.RPSCPMKRepository,
 	rencanaRepo repository.RPSRencanaPembelajaranRepository,
 	bahanRepo repository.RPSBahanBacaanRepository,
-	evaluasiRepo repository.RPSEvaluasiRepository,
+	subCpmkRepo repository.SubCPMKRepository,
 	notifService NotificationService,
 ) RPSService {
 	return &rpsService{
@@ -75,7 +70,7 @@ func NewRPSService(
 		cpmkRepo:     cpmkRepo,
 		rencanaRepo:  rencanaRepo,
 		bahanRepo:    bahanRepo,
-		evaluasiRepo: evaluasiRepo,
+		subCpmkRepo:  subCpmkRepo,
 		notifService: notifService,
 	}
 }
@@ -257,6 +252,81 @@ func (s *rpsService) UpdateRPS(id string, req dto.RPSRequest) (*dto.RPSResponse,
 		ReviewCatatan: rps.ReviewCatatan,
 		ReviewedAt:    rps.ReviewedAt,
 	}
+	return &resp, nil
+}
+
+// UpdateRPSPartial updates RPS with partial data (only provided fields)
+func (s *rpsService) UpdateRPSPartial(id string, req dto.UpdateRPSRequest) (*dto.RPSResponse, error) {
+	// Use FindMinimalByID to avoid loading relations with invalid JSON
+	rps, err := s.rpsRepo.FindMinimalByID(id)
+	if err != nil {
+		return nil, errors.New("RPS tidak ditemukan")
+	}
+
+	if rps.Status == "approved" || rps.Status == "published" {
+		return nil, errors.New("RPS yang sudah disetujui tidak dapat diubah")
+	}
+
+	// Build updates map with only provided fields
+	updates := make(map[string]interface{})
+
+	if req.TahunAjaran != "" {
+		updates["tahun_ajaran"] = req.TahunAjaran
+	}
+	if req.SemesterType != "" {
+		updates["semester_type"] = req.SemesterType
+	}
+	if req.DeskripsiMK != nil {
+		updates["deskripsi_mk"] = req.DeskripsiMK
+	}
+	if req.CapaianPembelajaran != nil {
+		updates["capaian_pembelajaran"] = req.CapaianPembelajaran
+	}
+	if len(req.MetodePembelajaran) > 0 {
+		metodePembelajaranJSON, _ := json.Marshal(req.MetodePembelajaran)
+		updates["metode_pembelajaran"] = metodePembelajaranJSON
+	}
+	if len(req.MediaPembelajaran) > 0 {
+		mediaPembelajaranJSON, _ := json.Marshal(req.MediaPembelajaran)
+		updates["media_pembelajaran"] = mediaPembelajaranJSON
+	}
+
+	// Update using map to avoid GORM relations issue
+	if len(updates) > 0 {
+		if err := s.rpsRepo.UpdateFields(id, updates); err != nil {
+			return nil, errors.New("gagal mengupdate RPS")
+		}
+	}
+
+	// Fetch updated RPS for response
+	rps, _ = s.rpsRepo.FindMinimalByID(id)
+
+	// Parse metode dan media pembelajaran for response
+	var metodePembelajaran, mediaPembelajaran []string
+	if rps.MetodePembelajaran != nil {
+		json.Unmarshal(rps.MetodePembelajaran, &metodePembelajaran)
+	}
+	if rps.MediaPembelajaran != nil {
+		json.Unmarshal(rps.MediaPembelajaran, &mediaPembelajaran)
+	}
+
+	resp := dto.RPSResponse{
+		ID:                  rps.ID,
+		MataKuliahID:        rps.MataKuliahID,
+		TahunAjaran:         rps.TahunAjaran,
+		SemesterType:        rps.SemesterType,
+		TanggalPenyusunan:   rps.TanggalPenyusunan,
+		DosenID:             rps.DosenID,
+		DeskripsiMK:         rps.DeskripsiMK,
+		CapaianPembelajaran: rps.CapaianPembelajaran,
+		MetodePembelajaran:  metodePembelajaran,
+		MediaPembelajaran:   mediaPembelajaran,
+		Status:              rps.Status,
+		Version:             rps.Version,
+		CreatedAt:           rps.CreatedAt,
+		UpdatedAt:           rps.UpdatedAt,
+	}
+
 	return &resp, nil
 }
 
@@ -591,24 +661,25 @@ func (s *rpsService) DeleteCPMK(id string) error {
 // Rencana Pembelajaran methods
 func (s *rpsService) AddRencanaPembelajaran(rpsID string, req dto.RPSRencanaPembelajaranRequest) (*dto.RPSRencanaPembelajaranResponse, error) {
 	subTopikJSON, _ := json.Marshal(req.SubTopik)
-	cpmkIDsJSON, _ := json.Marshal(req.CPMKIDs)
 
 	rencana := &model.RPSRencanaPembelajaran{
-		RPSID:     rpsID,
-		Pertemuan: req.Pertemuan,
-		Topik:     req.Topik,
-		SubTopik:  subTopikJSON,
-		Metode:    req.Metode,
-		Waktu:     req.Waktu,
-		CPMKIDs:   cpmkIDsJSON,
-		Materi:    req.Materi,
+		RPSID:              rpsID,
+		MingguKe:           req.MingguKe,
+		SubCPMKID:          req.SubCPMKID,
+		Topik:              req.Topik,
+		SubTopik:           subTopikJSON,
+		MetodePembelajaran: req.MetodePembelajaran,
+		WaktuMenit:         req.WaktuMenit,
+		TeknikKriteria:     req.TeknikKriteria,
+		BobotPersen:        req.BobotPersen,
 	}
 
 	if err := s.rencanaRepo.Create(rencana); err != nil {
 		return nil, errors.New("gagal menambah rencana pembelajaran")
 	}
 
-	resp := toRPSRencanaPembelajaranResponse(rencana)
+	// Populate SubCPMK dari SubCPMKID
+	resp := s.toRPSRencanaPembelajaranResponseWithSubCPMK(rencana)
 	return &resp, nil
 }
 
@@ -619,21 +690,21 @@ func (s *rpsService) UpdateRencanaPembelajaran(id string, req dto.RPSRencanaPemb
 	}
 
 	subTopikJSON, _ := json.Marshal(req.SubTopik)
-	cpmkIDsJSON, _ := json.Marshal(req.CPMKIDs)
 
-	rencana.Pertemuan = req.Pertemuan
+	rencana.MingguKe = req.MingguKe
+	rencana.SubCPMKID = req.SubCPMKID
 	rencana.Topik = req.Topik
 	rencana.SubTopik = subTopikJSON
-	rencana.Metode = req.Metode
-	rencana.Waktu = req.Waktu
-	rencana.CPMKIDs = cpmkIDsJSON
-	rencana.Materi = req.Materi
+	rencana.MetodePembelajaran = req.MetodePembelajaran
+	rencana.WaktuMenit = req.WaktuMenit
+	rencana.TeknikKriteria = req.TeknikKriteria
+	rencana.BobotPersen = req.BobotPersen
 
 	if err := s.rencanaRepo.Update(rencana); err != nil {
 		return nil, errors.New("gagal mengupdate rencana pembelajaran")
 	}
 
-	resp := toRPSRencanaPembelajaranResponse(rencana)
+	resp := s.toRPSRencanaPembelajaranResponseWithSubCPMK(rencana)
 	return &resp, nil
 }
 
@@ -649,7 +720,8 @@ func (s *rpsService) GetRencanaPembelajaranByRPS(rpsID string) ([]dto.RPSRencana
 
 	var responses []dto.RPSRencanaPembelajaranResponse
 	for _, rencana := range rencanaList {
-		responses = append(responses, toRPSRencanaPembelajaranResponse(&rencana))
+		// Menggunakan fungsi dengan SubCPMK untuk menampilkan indikator dari sub_cpmk
+		responses = append(responses, s.toRPSRencanaPembelajaranResponseWithSubCPMK(&rencana))
 	}
 
 	return responses, nil
@@ -658,15 +730,16 @@ func (s *rpsService) GetRencanaPembelajaranByRPS(rpsID string) ([]dto.RPSRencana
 // Bahan Bacaan methods
 func (s *rpsService) AddBahanBacaan(rpsID string, req dto.RPSBahanBacaanRequest) (*dto.RPSBahanBacaanResponse, error) {
 	bahan := &model.RPSBahanBacaan{
-		RPSID:   rpsID,
-		Judul:   req.Judul,
-		Penulis: req.Penulis,
-		Tahun:   req.Tahun,
-		Jenis:   req.Jenis,
-		URL:     req.URL,
-		ISBN:    req.ISBN,
-		Halaman: req.Halaman,
-		Urutan:  req.Urutan,
+		RPSID:    rpsID,
+		Judul:    req.Judul,
+		Penulis:  req.Penulis,
+		Penerbit: req.Penerbit,
+		Tahun:    req.Tahun,
+		Jenis:    req.Jenis,
+		URL:      req.URL,
+		ISBN:     req.ISBN,
+		Halaman:  req.Halaman,
+		Urutan:   req.Urutan,
 	}
 
 	if err := s.bahanRepo.Create(bahan); err != nil {
@@ -685,6 +758,7 @@ func (s *rpsService) UpdateBahanBacaan(id string, req dto.RPSBahanBacaanRequest)
 
 	bahan.Judul = req.Judul
 	bahan.Penulis = req.Penulis
+	bahan.Penerbit = req.Penerbit
 	bahan.Tahun = req.Tahun
 	bahan.Jenis = req.Jenis
 	bahan.URL = req.URL
@@ -713,97 +787,6 @@ func (s *rpsService) GetBahanBacaanByRPS(rpsID string) ([]dto.RPSBahanBacaanResp
 	var responses []dto.RPSBahanBacaanResponse
 	for _, bahan := range bahanList {
 		responses = append(responses, toRPSBahanBacaanResponse(&bahan))
-	}
-
-	return responses, nil
-}
-
-// Evaluasi methods
-func (s *rpsService) AddEvaluasi(rpsID string, req dto.RPSEvaluasiRequest) (*dto.RPSEvaluasiResponse, error) {
-	// Check total bobot
-	currentTotal, _ := s.evaluasiRepo.GetTotalBobotByRPSID(rpsID)
-	if currentTotal+req.Bobot > 100 {
-		return nil, errors.New("total bobot evaluasi tidak boleh lebih dari 100%")
-	}
-
-	cpmkIDsJSON, _ := json.Marshal(req.CPMKIDs)
-	subCPMKIDsJSON, _ := json.Marshal(req.SubCPMKIDs)
-
-	evaluasi := &model.RPSEvaluasi{
-		RPSID:             rpsID,
-		Komponen:          req.Komponen,
-		TeknikPenilaian:   req.TeknikPenilaian,
-		Instrumen:         req.Instrumen,
-		Bobot:             req.Bobot,
-		MingguMulai:       req.MingguMulai,
-		MingguSelesai:     req.MingguSelesai,
-		CPLID:             req.CPLID,
-		KriteriaPenilaian: req.KriteriaPenilaian,
-		Urutan:            req.Urutan,
-		CPMKIDs:           cpmkIDsJSON,
-		SubCPMKIDs:        subCPMKIDsJSON,
-		TopikMateri:       req.TopikMateri,
-		JenisAssessment:   req.JenisAssessment,
-	}
-
-	if err := s.evaluasiRepo.Create(evaluasi); err != nil {
-		return nil, errors.New("gagal menambah evaluasi")
-	}
-
-	resp := toRPSEvaluasiResponse(evaluasi)
-	return &resp, nil
-}
-
-func (s *rpsService) UpdateEvaluasi(id string, req dto.RPSEvaluasiRequest) (*dto.RPSEvaluasiResponse, error) {
-	evaluasi, err := s.evaluasiRepo.FindByID(id)
-	if err != nil {
-		return nil, errors.New("evaluasi tidak ditemukan")
-	}
-
-	// Check total bobot (excluding current)
-	currentTotal, _ := s.evaluasiRepo.GetTotalBobotByRPSID(evaluasi.RPSID)
-	if (currentTotal-evaluasi.Bobot)+req.Bobot > 100 {
-		return nil, errors.New("total bobot evaluasi tidak boleh lebih dari 100%")
-	}
-
-	cpmkIDsJSON, _ := json.Marshal(req.CPMKIDs)
-	subCPMKIDsJSON, _ := json.Marshal(req.SubCPMKIDs)
-
-	evaluasi.Komponen = req.Komponen
-	evaluasi.TeknikPenilaian = req.TeknikPenilaian
-	evaluasi.Instrumen = req.Instrumen
-	evaluasi.Bobot = req.Bobot
-	evaluasi.MingguMulai = req.MingguMulai
-	evaluasi.MingguSelesai = req.MingguSelesai
-	evaluasi.CPLID = req.CPLID
-	evaluasi.KriteriaPenilaian = req.KriteriaPenilaian
-	evaluasi.Urutan = req.Urutan
-	evaluasi.CPMKIDs = cpmkIDsJSON
-	evaluasi.SubCPMKIDs = subCPMKIDsJSON
-	evaluasi.TopikMateri = req.TopikMateri
-	evaluasi.JenisAssessment = req.JenisAssessment
-
-	if err := s.evaluasiRepo.Update(evaluasi); err != nil {
-		return nil, errors.New("gagal mengupdate evaluasi")
-	}
-
-	resp := toRPSEvaluasiResponse(evaluasi)
-	return &resp, nil
-}
-
-func (s *rpsService) DeleteEvaluasi(id string) error {
-	return s.evaluasiRepo.Delete(id)
-}
-
-func (s *rpsService) GetEvaluasiByRPS(rpsID string) ([]dto.RPSEvaluasiResponse, error) {
-	evaluasiList, err := s.evaluasiRepo.FindByRPSID(rpsID)
-	if err != nil {
-		return nil, errors.New("gagal mengambil data evaluasi")
-	}
-
-	var responses []dto.RPSEvaluasiResponse
-	for _, evaluasi := range evaluasiList {
-		responses = append(responses, toRPSEvaluasiResponse(&evaluasi))
 	}
 
 	return responses, nil
@@ -864,11 +847,6 @@ func toRPSResponse(rps *model.RPS) dto.RPSResponse {
 		resp.BahanBacaan = append(resp.BahanBacaan, toRPSBahanBacaanResponse(&bahan))
 	}
 
-	// Convert Evaluasi
-	for _, eval := range rps.Evaluasi {
-		resp.Evaluasi = append(resp.Evaluasi, toRPSEvaluasiResponse(&eval))
-	}
-
 	// Convert Rencana Tugas
 	for _, tugas := range rps.RencanaTugas {
 		resp.RencanaTugas = append(resp.RencanaTugas, toRPSRencanaTugasResponseFromModel(&tugas))
@@ -877,11 +855,6 @@ func toRPSResponse(rps *model.RPS) dto.RPSResponse {
 	// Convert Analisis Ketercapaian
 	for _, analisis := range rps.AnalisisKetercapaian {
 		resp.AnalisisKetercapaian = append(resp.AnalisisKetercapaian, toRPSAnalisisKetercapaianCPLResponseFromModel(&analisis))
-	}
-
-	// Convert Skala Penilaian
-	for _, skala := range rps.SkalaPenilaian {
-		resp.SkalaPenilaian = append(resp.SkalaPenilaian, toRPSSkalaPenilaianResponseFromModel(&skala))
 	}
 
 	if rps.Dosen.ID != "" {
@@ -912,37 +885,45 @@ func toRPSCPMKResponse(cpmk *model.RPSCPMK) dto.RPSCPMKResponse {
 
 func toRPSRencanaPembelajaranResponse(rencana *model.RPSRencanaPembelajaran) dto.RPSRencanaPembelajaranResponse {
 	var subTopik []string
-	var cpmkIDs []string
-	var subCpmkIDs []string
-	var indikator []string
 	json.Unmarshal(rencana.SubTopik, &subTopik)
-	json.Unmarshal(rencana.CPMKIDs, &cpmkIDs)
-	json.Unmarshal(rencana.SubCPMKIDs, &subCpmkIDs)
-	json.Unmarshal(rencana.Indikator, &indikator)
 
 	return dto.RPSRencanaPembelajaranResponse{
-		ID:                rencana.ID,
-		RPSID:             rencana.RPSID,
-		Pertemuan:         rencana.Pertemuan,
-		MingguMulai:       rencana.MingguMulai,
-		MingguSelesai:     rencana.MingguSelesai,
-		Topik:             rencana.Topik,
-		SubTopik:          subTopik,
-		SubCPMKIDs:        subCpmkIDs,
-		CPMKIDs:           cpmkIDs,
-		Indikator:         indikator,
-		Metode:            rencana.Metode,
-		MediaLMS:          rencana.MediaLMS,
-		Waktu:             rencana.Waktu,
-		WaktuTM:           rencana.WaktuTM,
-		WaktuBM:           rencana.WaktuBM,
-		WaktuPT:           rencana.WaktuPT,
-		Materi:            rencana.Materi,
-		TeknikPenilaian:   rencana.TeknikPenilaian,
-		KriteriaPenilaian: rencana.KriteriaPenilaian,
-		BobotPenilaian:    rencana.BobotPenilaian,
-		CreatedAt:         rencana.CreatedAt,
+		ID:                 rencana.ID,
+		RPSID:              rencana.RPSID,
+		MingguKe:           rencana.MingguKe,
+		SubCPMKID:          rencana.SubCPMKID,
+		Topik:              rencana.Topik,
+		SubTopik:           subTopik,
+		MetodePembelajaran: rencana.MetodePembelajaran,
+		WaktuMenit:         rencana.WaktuMenit,
+		TeknikKriteria:     rencana.TeknikKriteria,
+		BobotPersen:        rencana.BobotPersen,
+		CreatedAt:          rencana.CreatedAt,
+		UpdatedAt:          rencana.UpdatedAt,
 	}
+}
+
+// toRPSRencanaPembelajaranResponseWithSubCPMK - mengambil data SubCPMK berdasarkan SubCPMKID (indikator = deskripsi sub_cpmk)
+func (s *rpsService) toRPSRencanaPembelajaranResponseWithSubCPMK(rencana *model.RPSRencanaPembelajaran) dto.RPSRencanaPembelajaranResponse {
+	resp := toRPSRencanaPembelajaranResponse(rencana)
+
+	// Populate SubCPMK dari database berdasarkan SubCPMKID
+	if resp.SubCPMKID != nil && *resp.SubCPMKID != "" {
+		subCpmk, err := s.subCpmkRepo.FindByID(*resp.SubCPMKID)
+		if err == nil && subCpmk != nil {
+			resp.SubCPMK = &dto.SubCPMKResponse{
+				ID:        subCpmk.ID,
+				CPMKID:    subCpmk.CPMKID,
+				Kode:      subCpmk.Kode,
+				Deskripsi: subCpmk.Deskripsi, // Ini adalah INDIKATOR
+				Urutan:    subCpmk.Urutan,
+				CreatedAt: subCpmk.CreatedAt,
+				UpdatedAt: subCpmk.UpdatedAt,
+			}
+		}
+	}
+
+	return resp
 }
 
 func toRPSBahanBacaanResponse(bahan *model.RPSBahanBacaan) dto.RPSBahanBacaanResponse {
@@ -951,6 +932,7 @@ func toRPSBahanBacaanResponse(bahan *model.RPSBahanBacaan) dto.RPSBahanBacaanRes
 		RPSID:     bahan.RPSID,
 		Judul:     bahan.Judul,
 		Penulis:   bahan.Penulis,
+		Penerbit:  bahan.Penerbit,
 		Tahun:     bahan.Tahun,
 		Jenis:     bahan.Jenis,
 		URL:       bahan.URL,
@@ -961,45 +943,8 @@ func toRPSBahanBacaanResponse(bahan *model.RPSBahanBacaan) dto.RPSBahanBacaanRes
 	}
 }
 
-func toRPSEvaluasiResponse(evaluasi *model.RPSEvaluasi) dto.RPSEvaluasiResponse {
-	var cpmkIDs []string
-	var subCPMKIDs []string
-	json.Unmarshal(evaluasi.CPMKIDs, &cpmkIDs)
-	json.Unmarshal(evaluasi.SubCPMKIDs, &subCPMKIDs)
-
-	resp := dto.RPSEvaluasiResponse{
-		ID:                evaluasi.ID,
-		RPSID:             evaluasi.RPSID,
-		Komponen:          evaluasi.Komponen,
-		TeknikPenilaian:   evaluasi.TeknikPenilaian,
-		Instrumen:         evaluasi.Instrumen,
-		Bobot:             evaluasi.Bobot,
-		MingguMulai:       evaluasi.MingguMulai,
-		MingguSelesai:     evaluasi.MingguSelesai,
-		CPLID:             evaluasi.CPLID,
-		KriteriaPenilaian: evaluasi.KriteriaPenilaian,
-		Urutan:            evaluasi.Urutan,
-		CPMKIDs:           cpmkIDs,
-		SubCPMKIDs:        subCPMKIDs,
-		TopikMateri:       evaluasi.TopikMateri,
-		JenisAssessment:   evaluasi.JenisAssessment,
-		CreatedAt:         evaluasi.CreatedAt,
-		UpdatedAt:         evaluasi.UpdatedAt,
-	}
-
-	if evaluasi.CPL != nil {
-		resp.CPL = &dto.CPLSimpleResponse{
-			ID:   evaluasi.CPL.ID,
-			Kode: evaluasi.CPL.Kode,
-			Nama: evaluasi.CPL.Nama,
-		}
-	}
-
-	return resp
-}
-
 func toRPSRencanaTugasResponseFromModel(tugas *model.RPSRencanaTugas) dto.RPSRencanaTugasResponse {
-	return dto.RPSRencanaTugasResponse{
+	resp := dto.RPSRencanaTugasResponse{
 		ID:                    tugas.ID,
 		RPSID:                 tugas.RPSID,
 		NomorTugas:            tugas.NomorTugas,
@@ -1012,9 +957,24 @@ func toRPSRencanaTugasResponseFromModel(tugas *model.RPSRencanaTugas) dto.RPSRen
 		KriteriaPenilaian:     tugas.KriteriaPenilaian,
 		TeknikPenilaian:       tugas.TeknikPenilaian,
 		Bobot:                 tugas.Bobot,
+		SubCPMKID:             tugas.SubCPMKID,
+		DaftarRujukan:         tugas.DaftarRujukan,
 		CreatedAt:             tugas.CreatedAt,
 		UpdatedAt:             tugas.UpdatedAt,
 	}
+
+	// Populate SubCPMK if available
+	if tugas.SubCPMK != nil {
+		resp.SubCPMK = &dto.SubCPMKResponse{
+			ID:        tugas.SubCPMK.ID,
+			CPMKID:    tugas.SubCPMK.CPMKID,
+			Kode:      tugas.SubCPMK.Kode,
+			Deskripsi: tugas.SubCPMK.Deskripsi,
+			Urutan:    tugas.SubCPMK.Urutan,
+		}
+	}
+
+	return resp
 }
 
 func toRPSAnalisisKetercapaianCPLResponseFromModel(analisis *model.RPSAnalisisKetercapaianCPL) dto.RPSAnalisisKetercapaianCPLResponse {
@@ -1036,18 +996,5 @@ func toRPSAnalisisKetercapaianCPLResponseFromModel(analisis *model.RPSAnalisisKe
 		BobotKontribusi: analisis.BobotKontribusi,
 		CreatedAt:       analisis.CreatedAt,
 		UpdatedAt:       analisis.UpdatedAt,
-	}
-}
-
-func toRPSSkalaPenilaianResponseFromModel(skala *model.RPSSkalaPenilaian) dto.RPSSkalaPenilaianResponse {
-	return dto.RPSSkalaPenilaianResponse{
-		ID:         skala.ID,
-		RPSID:      skala.RPSID,
-		NilaiMin:   skala.NilaiMin,
-		NilaiMax:   skala.NilaiMax,
-		HurufMutu:  skala.HurufMutu,
-		BobotNilai: skala.BobotNilai,
-		IsLulus:    skala.IsLulus,
-		CreatedAt:  skala.CreatedAt,
 	}
 }

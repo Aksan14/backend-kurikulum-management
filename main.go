@@ -35,7 +35,6 @@ func main() {
 	rpsCPMKRepo := repository.NewRPSCPMKRepository(db)
 	rpsRencanaRepo := repository.NewRPSRencanaPembelajaranRepository(db)
 	rpsBahanRepo := repository.NewRPSBahanBacaanRepository(db)
-	rpsEvaluasiRepo := repository.NewRPSEvaluasiRepository(db)
 	notificationRepo := repository.NewNotificationRepository(db)
 	documentTemplateRepo := repository.NewDocumentTemplateRepository(db)
 	generatedDocumentRepo := repository.NewGeneratedDocumentRepository(db)
@@ -45,7 +44,6 @@ func main() {
 	subCPMKRepo := repository.NewSubCPMKRepository(db)
 	rencanaTugasRepo := repository.NewRPSRencanaTugasRepository(db)
 	analisisKetercapaianRepo := repository.NewRPSAnalisisKetercapaianCPLRepository(db)
-	skalaPenilaianRepo := repository.NewRPSSkalaPenilaianRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, refreshTokenRepo)
@@ -54,17 +52,16 @@ func main() {
 	mataKuliahService := service.NewMataKuliahService(mataKuliahRepo)
 	notificationService := service.NewNotificationService(notificationRepo)
 	cplAssignmentService := service.NewCPLAssignmentService(cplAssignmentRepo, cplRepo, cplMKMappingRepo, notificationService)
-	rpsService := service.NewRPSService(rpsRepo, mataKuliahRepo, rpsCPMKRepo, rpsRencanaRepo, rpsBahanRepo, rpsEvaluasiRepo, notificationService)
+	rpsService := service.NewRPSService(rpsRepo, mataKuliahRepo, rpsCPMKRepo, rpsRencanaRepo, rpsBahanRepo, subCPMKRepo, notificationService)
 	dashboardService := service.NewDashboardService(cplRepo, rpsRepo, cplAssignmentRepo, userRepo, generatedDocumentRepo)
 	documentService := service.NewDocumentService(documentTemplateRepo, generatedDocumentRepo)
 	cplMKMappingService := service.NewCPLMKMappingService(cplMKMappingRepo, cplRepo, mataKuliahRepo)
 
 	// New RPS Extended Services
 	subCPMKService := service.NewSubCPMKService(subCPMKRepo, rpsCPMKRepo)
-	rencanaTugasService := service.NewRPSRencanaTugasService(rencanaTugasRepo, rpsRepo)
+	rencanaTugasService := service.NewRPSRencanaTugasService(rencanaTugasRepo, rpsRepo, subCPMKRepo)
 	analisisKetercapaianService := service.NewRPSAnalisisKetercapaianCPLService(analisisKetercapaianRepo, rpsRepo)
-	skalaPenilaianService := service.NewRPSSkalaPenilaianService(skalaPenilaianRepo, rpsRepo)
-	rpsExtendedService := service.NewRPSExtendedService(subCPMKService, rencanaTugasService, analisisKetercapaianService, skalaPenilaianService)
+	rpsExtendedService := service.NewRPSExtendedService(subCPMKService, rencanaTugasService, analisisKetercapaianService)
 
 	// Initialize controllers
 	uploadDir := getEnv("UPLOAD_DIR", "./uploads")
@@ -97,7 +94,6 @@ func main() {
 		CPLMKMappingController:  cplMKMappingController,
 	}
 
-	// Get allowed origins from env
 	allowedOrigins := strings.Split(getEnv("CORS_ALLOWED_ORIGINS", "*"), ",")
 
 	// Setup router

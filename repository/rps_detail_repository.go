@@ -96,7 +96,7 @@ func (r *rpsRencanaPembelajaranRepository) CreateBatch(rencanas []model.RPSRenca
 
 func (r *rpsRencanaPembelajaranRepository) FindByRPSID(rpsID string) ([]model.RPSRencanaPembelajaran, error) {
 	var rencanas []model.RPSRencanaPembelajaran
-	err := r.db.Where("rps_id = ?", rpsID).Order("pertemuan ASC").Find(&rencanas).Error
+	err := r.db.Where("rps_id = ?", rpsID).Order("minggu_ke ASC").Find(&rencanas).Error
 	return rencanas, err
 }
 
@@ -175,66 +175,6 @@ func (r *rpsBahanBacaanRepository) DeleteByRPSID(rpsID string) error {
 	return r.db.Where("rps_id = ?", rpsID).Delete(&model.RPSBahanBacaan{}).Error
 }
 
-// RPS Evaluasi Repository
-type RPSEvaluasiRepository interface {
-	Create(evaluasi *model.RPSEvaluasi) error
-	CreateBatch(evaluasis []model.RPSEvaluasi) error
-	FindByRPSID(rpsID string) ([]model.RPSEvaluasi, error)
-	FindByID(id string) (*model.RPSEvaluasi, error)
-	Update(evaluasi *model.RPSEvaluasi) error
-	Delete(id string) error
-	DeleteByRPSID(rpsID string) error
-	GetTotalBobotByRPSID(rpsID string) (float64, error)
-}
-
-type rpsEvaluasiRepository struct {
-	db *gorm.DB
-}
-
-func NewRPSEvaluasiRepository(db *gorm.DB) RPSEvaluasiRepository {
-	return &rpsEvaluasiRepository{db: db}
-}
-
-func (r *rpsEvaluasiRepository) Create(evaluasi *model.RPSEvaluasi) error {
-	return r.db.Create(evaluasi).Error
-}
-
-func (r *rpsEvaluasiRepository) CreateBatch(evaluasis []model.RPSEvaluasi) error {
-	return r.db.Create(&evaluasis).Error
-}
-
-func (r *rpsEvaluasiRepository) FindByRPSID(rpsID string) ([]model.RPSEvaluasi, error) {
-	var evaluasis []model.RPSEvaluasi
-	err := r.db.Where("rps_id = ?", rpsID).Find(&evaluasis).Error
-	return evaluasis, err
-}
-
-func (r *rpsEvaluasiRepository) FindByID(id string) (*model.RPSEvaluasi, error) {
-	var evaluasi model.RPSEvaluasi
-	err := r.db.Where("id = ?", id).First(&evaluasi).Error
-	if err != nil {
-		return nil, err
-	}
-	return &evaluasi, nil
-}
-
-func (r *rpsEvaluasiRepository) Update(evaluasi *model.RPSEvaluasi) error {
-	return r.db.Save(evaluasi).Error
-}
-
-func (r *rpsEvaluasiRepository) Delete(id string) error {
-	return r.db.Delete(&model.RPSEvaluasi{}, "id = ?", id).Error
-}
-
-func (r *rpsEvaluasiRepository) DeleteByRPSID(rpsID string) error {
-	return r.db.Where("rps_id = ?", rpsID).Delete(&model.RPSEvaluasi{}).Error
-}
-
-func (r *rpsEvaluasiRepository) GetTotalBobotByRPSID(rpsID string) (float64, error) {
-	var total float64
-	err := r.db.Model(&model.RPSEvaluasi{}).Where("rps_id = ?", rpsID).Select("COALESCE(SUM(bobot), 0)").Scan(&total).Error
-	return total, err
-}
 
 // ============ Sub-CPMK Repository ============
 
@@ -422,78 +362,6 @@ func (r *rpsAnalisisKetercapaianCPLRepository) DeleteByRPSID(rpsID string) error
 	return r.db.Where("rps_id = ?", rpsID).Delete(&model.RPSAnalisisKetercapaianCPL{}).Error
 }
 
-// ============ RPS Skala Penilaian Repository ============
-
-type RPSSkalaPenilaianRepository interface {
-	Create(skala *model.RPSSkalaPenilaian) error
-	CreateBatch(skalaList []model.RPSSkalaPenilaian) error
-	FindByRPSID(rpsID string) ([]model.RPSSkalaPenilaian, error)
-	FindByID(id string) (*model.RPSSkalaPenilaian, error)
-	Update(skala *model.RPSSkalaPenilaian) error
-	Delete(id string) error
-	DeleteByRPSID(rpsID string) error
-	CreateDefaultSkala(rpsID string) error
-}
-
-type rpsSkalaPenilaianRepository struct {
-	db *gorm.DB
-}
-
-func NewRPSSkalaPenilaianRepository(db *gorm.DB) RPSSkalaPenilaianRepository {
-	return &rpsSkalaPenilaianRepository{db: db}
-}
-
-func (r *rpsSkalaPenilaianRepository) Create(skala *model.RPSSkalaPenilaian) error {
-	return r.db.Create(skala).Error
-}
-
-func (r *rpsSkalaPenilaianRepository) CreateBatch(skalaList []model.RPSSkalaPenilaian) error {
-	return r.db.Create(&skalaList).Error
-}
-
-func (r *rpsSkalaPenilaianRepository) FindByRPSID(rpsID string) ([]model.RPSSkalaPenilaian, error) {
-	var skalaList []model.RPSSkalaPenilaian
-	err := r.db.Where("rps_id = ?", rpsID).Order("nilai_min DESC").Find(&skalaList).Error
-	return skalaList, err
-}
-
-func (r *rpsSkalaPenilaianRepository) FindByID(id string) (*model.RPSSkalaPenilaian, error) {
-	var skala model.RPSSkalaPenilaian
-	err := r.db.Where("id = ?", id).First(&skala).Error
-	if err != nil {
-		return nil, err
-	}
-	return &skala, nil
-}
-
-func (r *rpsSkalaPenilaianRepository) Update(skala *model.RPSSkalaPenilaian) error {
-	return r.db.Save(skala).Error
-}
-
-func (r *rpsSkalaPenilaianRepository) Delete(id string) error {
-	return r.db.Delete(&model.RPSSkalaPenilaian{}, "id = ?", id).Error
-}
-
-func (r *rpsSkalaPenilaianRepository) DeleteByRPSID(rpsID string) error {
-	return r.db.Where("rps_id = ?", rpsID).Delete(&model.RPSSkalaPenilaian{}).Error
-}
-
-// CreateDefaultSkala creates default grading scale for an RPS
-func (r *rpsSkalaPenilaianRepository) CreateDefaultSkala(rpsID string) error {
-	defaultSkala := []model.RPSSkalaPenilaian{
-		{RPSID: rpsID, NilaiMin: 90, NilaiMax: 100, HurufMutu: "A", BobotNilai: 4.00, IsLulus: true},
-		{RPSID: rpsID, NilaiMin: 85, NilaiMax: 89, HurufMutu: "A-", BobotNilai: 3.75, IsLulus: true},
-		{RPSID: rpsID, NilaiMin: 80, NilaiMax: 84, HurufMutu: "B+", BobotNilai: 3.50, IsLulus: true},
-		{RPSID: rpsID, NilaiMin: 75, NilaiMax: 79, HurufMutu: "B", BobotNilai: 3.00, IsLulus: true},
-		{RPSID: rpsID, NilaiMin: 70, NilaiMax: 74, HurufMutu: "B-", BobotNilai: 2.75, IsLulus: true},
-		{RPSID: rpsID, NilaiMin: 65, NilaiMax: 69, HurufMutu: "C+", BobotNilai: 2.50, IsLulus: true},
-		{RPSID: rpsID, NilaiMin: 60, NilaiMax: 64, HurufMutu: "C", BobotNilai: 2.00, IsLulus: true},
-		{RPSID: rpsID, NilaiMin: 55, NilaiMax: 59, HurufMutu: "C-", BobotNilai: 1.75, IsLulus: false},
-		{RPSID: rpsID, NilaiMin: 50, NilaiMax: 54, HurufMutu: "D", BobotNilai: 1.00, IsLulus: false},
-		{RPSID: rpsID, NilaiMin: 0, NilaiMax: 49, HurufMutu: "E", BobotNilai: 0.00, IsLulus: false},
-	}
-	return r.db.Create(&defaultSkala).Error
-}
 
 // ============ CPMK CPL Mapping Repository ============
 
